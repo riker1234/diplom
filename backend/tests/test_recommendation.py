@@ -182,3 +182,92 @@ def test_score_switches_any_no_bonus():
     # switches=any → бонус за переключатели не начисляется
     score = _score(FakeKeyboard(), "keyboard", {"use_case": "gaming", "switches": "any", "budget": 5000})
     assert score == 3
+
+
+# ── Интеграционные тесты API ──────────────────────────────────────────────────
+
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from app.main import app
+from app.database import Base, get_db
+
+_TEST_DB_URL = "sqlite:///./test_recommendation.db"
+_engine = create_engine(_TEST_DB_URL, connect_args={"check_same_thread": False})
+_TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
+Base.metadata.create_all(bind=_engine)
+
+
+def _override_get_db():
+    db = _TestingSession()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+app.dependency_overrides[get_db] = _override_get_db
+_client = TestClient(app)
+
+
+def test_questions_endpoint_mouse_returns_3():
+    resp = _client.get("/recommend/questions/mouse")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["category"] == "mouse"
+    assert len(data["questions"]) == 3
+
+
+def test_questions_endpoint_keyboard_returns_4():
+    resp = _client.get("/recommend/questions/keyboard")
+    assert resp.status_code == 200
+    assert len(resp.json()["questions"]) == 4
+
+
+def test_questions_endpoint_monitor_returns_3():
+    resp = _client.get("/recommend/questions/monitor")
+    assert resp.status_code == 200
+    assert len(resp.json()["questions"]) == 3
+
+
+def test_questions_endpoint_unknown_category_404():
+    resp = _client.get("/recommend/questions/printer")
+    assert resp.status_code == 404
+
+
+def test_recommend_empty_db_returns_empty_list():
+    resp = _client.post(
+        "/recommend/",
+        json={
+            "category": "mouse",
+            "answers": {"use_case": "gaming", "wireless": "no", "budget": 3000},
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["category"] == "mouse"
+    assert data["total"] == 0
+    assert data["results"] == []
+
+
+def test_recommend_unknown_category_404():
+    resp = _client.post(
+        "/recommend/",
+        json={"category": "printer", "answers": {"budget": 1000}},
+    )
+    assert resp.status_code == 404
+
+
+def test_recommend_response_shape():
+    resp = _client.post(
+        "/recommend/",
+        json={
+            "category": "monitor",
+            "answers": {"use_case": "work", "size": "any", "budget": 50000},
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "category" in data
+    assert "total" in data
+    assert "results" in data
