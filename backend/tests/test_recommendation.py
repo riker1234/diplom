@@ -88,3 +88,97 @@ def test_monitor_questions_have_required_ids():
     questions = get_questions("monitor")
     ids = [q["id"] for q in questions]
     assert ids == ["use_case", "size", "budget"]
+
+
+# ── Тесты движка рекомендаций ─────────────────────────────────────────────────
+
+from app.recommendation.engine import _score
+
+
+class FakeMouse:
+    id = 1
+    name = "Test Mouse"
+    brand = "TestBrand"
+    price = 1500.0
+    weight_g = 70.0
+    connection_types = "USB"
+    image_url = None
+    dns_url = None
+    wb_url = None
+
+
+class FakeHeavyMouse:
+    id = 2
+    name = "Heavy Mouse"
+    brand = "TestBrand"
+    price = 2500.0
+    weight_g = 110.0
+    connection_types = "USB"
+    image_url = None
+    dns_url = None
+    wb_url = None
+
+
+class FakeMonitorGaming:
+    id = 3
+    name = "Gaming Monitor"
+    brand = "TestBrand"
+    price = 15000.0
+    refresh_rate_hz = 144
+    matrix_type = "IPS"
+    diagonal_inch = 24.0
+    image_url = None
+    dns_url = None
+    wb_url = None
+
+
+class FakeKeyboard:
+    id = 4
+    name = "Mech Keyboard"
+    brand = "TestBrand"
+    price = 3000.0
+    switches = "Cherry MX Red"
+    form_factor = "TKL"
+    image_url = None
+    dns_url = None
+    wb_url = None
+
+
+def test_score_gaming_light_mouse_gets_5():
+    # +3 за вес ≤80г при use_case=gaming, +2 за цену ≤70% от бюджета
+    score = _score(FakeMouse(), "mouse", {"use_case": "gaming", "budget": 3000})
+    assert score == 5
+
+
+def test_score_gaming_heavy_mouse_gets_0():
+    # вес >80г — нет бонуса, цена >70% от бюджета — нет бонуса
+    score = _score(FakeHeavyMouse(), "mouse", {"use_case": "gaming", "budget": 3000})
+    assert score == 0
+
+
+def test_score_gaming_monitor_gets_5():
+    # +3 за частоту ≥144Гц при gaming, +2 за цену ≤70% от бюджета
+    score = _score(FakeMonitorGaming(), "monitor", {"use_case": "gaming", "budget": 25000})
+    assert score == 5
+
+
+def test_score_keyboard_linear_gaming_tkl_gets_6():
+    # +3 за совпадение переключателей (linear→Red), +1 за gaming+TKL, +2 за цену
+    score = _score(
+        FakeKeyboard(),
+        "keyboard",
+        {"use_case": "gaming", "switches": "linear", "budget": 5000},
+    )
+    assert score == 6
+
+
+def test_score_no_budget_no_price_bonus():
+    # бюджет не указан → ценовой бонус не начисляется
+    score = _score(FakeMouse(), "mouse", {"use_case": "gaming"})
+    assert score == 3
+
+
+def test_score_switches_any_no_bonus():
+    # switches=any → бонус за переключатели не начисляется
+    score = _score(FakeKeyboard(), "keyboard", {"use_case": "gaming", "switches": "any", "budget": 5000})
+    assert score == 3
