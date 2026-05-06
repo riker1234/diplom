@@ -44,3 +44,47 @@ def test_questions_response_valid():
     )
     assert resp.category == "mouse"
     assert len(resp.questions) == 1
+
+
+from app.recommendation.questions import get_questions, SUPPORTED_CATEGORIES
+
+
+def test_get_questions_mouse_returns_3_questions():
+    questions = get_questions("mouse")
+    assert len(questions) == 3
+
+
+def test_get_questions_keyboard_returns_4_questions():
+    questions = get_questions("keyboard")
+    assert len(questions) == 4
+
+
+def test_get_questions_monitor_returns_3_questions():
+    questions = get_questions("monitor")
+    assert len(questions) == 3
+
+
+def test_get_questions_unknown_returns_none():
+    assert get_questions("printer") is None
+
+
+def test_supported_categories():
+    assert SUPPORTED_CATEGORIES == {"mouse", "keyboard", "monitor"}
+
+
+def test_mouse_questions_have_required_ids():
+    questions = get_questions("mouse")
+    ids = [q["id"] for q in questions]
+    assert ids == ["use_case", "wireless", "budget"]
+
+
+def test_keyboard_questions_have_required_ids():
+    questions = get_questions("keyboard")
+    ids = [q["id"] for q in questions]
+    assert ids == ["use_case", "form_factor", "switches", "budget"]
+
+
+def test_monitor_questions_have_required_ids():
+    questions = get_questions("monitor")
+    ids = [q["id"] for q in questions]
+    assert ids == ["use_case", "size", "budget"]
