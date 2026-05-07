@@ -1,6 +1,11 @@
 import re
+import time
 import concurrent.futures
-from playwright.sync_api import sync_playwright
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium_stealth import stealth
+from webdriver_manager.chrome import ChromeDriverManager
 from sqlalchemy.orm import Session
 from app.models.mouse import Mouse
 
@@ -8,6 +13,13 @@ _WEIGHT_KEYS = {"вес", "масса"}
 _CONNECTION_KEYS = {"тип подключения", "интерфейс"}
 _SENSOR_KEYS = {"сенсор", "тип сенсора"}
 _SWITCH_KEYS = {"переключатели", "микровыключатели"}
+
+_SEARCH_URL = (
+    "https://www.wildberries.ru/__internal/u-search/exactmatch/ru/common/v18/search"
+    "?ab_testing=false&appType=1&curr=rub&dest=-1257786"
+    "&query=%D0%B8%D0%B3%D1%80%D0%BE%D0%B2%D0%B0%D1%8F+%D0%BC%D1%8B%D1%88%D1%8C"
+    "&resultset=catalog&sort=popular&spp=30&suppressSpellcheck=false"
+)
 
 
 def _parse_weight(value: str) -> float | None:
@@ -52,90 +64,55 @@ def _build_image_url(product_id: int) -> str:
     return f"https://basket-{basket}.wbbasket.ru/vol{vol}/part{part}/{product_id}/images/big/1.webp"
 
 
-def _fetch_wb_data(query: str, limit: int = 100) -> tuple[list[dict], list[dict]]:
-    """Открывает WB в headless-браузере, перехватывает API-ответы и получает детали."""
-    products = []
-
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        context = browser.new_context(
-            locale="ru-RU",
-            user_agent=(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/147.0.0.0 Safari/537.36"
-            ),
-        )
-        page = context.new_page()
-
-        # Перехватываем ответ поискового API
-        def on_response(response):
-            nonlocal products
-            if "search.wb.ru" in response.url and response.status == 200:
-                try:
-                    data = response.json()
-                    prods = data.get("data", {}).get("products", [])
-                    if prods:
-                        products = prods[:limit]
-                except Exception:
-                    pass
-
-        page.on("response", on_response)
-
-        # Открываем страницу поиска — браузер сам делает запросы с куками
-        page.goto(
-            f"https://www.wildberries.ru/catalog/0/search.aspx?search={query}",
-            wait_until="domcontentloaded",
-            timeout=30000,
-        )
-        page.wait_for_timeout(4000)
-
-        details = []
-        if products:
-            ids = ";".join(str(p["id"]) for p in products[:50])
-            detail_url = (
-                f"https://card.wb.ru/cards/v1/detail"
-                f"?appType=1&curr=rub&dest=-1257786&nm={ids}"
-            )
-            # Запрос через браузерный fetch — куки уже есть
-            raw = page.evaluate(
-                f"""async () => {{
-                    const r = await fetch('{detail_url}');
-                    return await r.json();
-                }}"""
-            )
-            details = raw.get("data", {}).get("products", [])
-
-        browser.close()
-
-    return products, details
+def _make_driver() -> webdriver.Chrome:
+    options = Options()
+    options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option("useAutomationExtension", False)
+    driver = webdriver.Chrome(
+        service=Service(ChromeDriverManager().install()),
+        options=options,
+    )
+    stealth(
+        driver,
+        languages=["ru-RU", "ru"],
+        vendor="Google Inc.",
+        platform="Win32",
+        webgl_vendor="Intel Inc.",
+        renderer="Intel Iris OpenGL Engine",
+        fix_hairline=True,
+    )
+    return driver
 
 
-# Публичные функции оставляем для тестов
+def _fetch_wb_products(limit: int = 100) -> list[dict]:
+    driver = _make_driver()
+    try:
+        driver.get("https://www.wildberries.ru/")
+        time.sleep(5)
+        result = driver.execute_async_script(f"""
+            var callback = arguments[arguments.length - 1];
+            fetch('{_SEARCH_URL}')
+                .then(r => r.json())
+                .then(data => callback(data))
+                .catch(e => callback({{error: e.toString()}}))
+        """)
+        if "error" in result:
+            return []
+        return result.get("products", [])[:limit]
+    finally:
+        driver.quit()
+
+
+# Оставляем для совместимости с тестами
 def _search_wb(query: str, limit: int = 100) -> list[dict]:
-    products, _ = _fetch_wb_data(query, limit)
-    return products
+    return _fetch_wb_products(limit)
 
 
 def _fetch_details(product_ids: list[int]) -> list[dict]:
-    if not product_ids:
-        return []
-    ids = ";".join(str(i) for i in product_ids)
-    detail_url = (
-        f"https://card.wb.ru/cards/v1/detail"
-        f"?appType=1&curr=rub&dest=-1257786&nm={ids}"
-    )
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-        raw = page.evaluate(
-            f"""async () => {{
-                const r = await fetch('{detail_url}');
-                return await r.json();
-            }}"""
-        )
-        browser.close()
-    return raw.get("data", {}).get("products", [])
+    return []
 
 
 def parse_mice(db: Session) -> dict:
@@ -143,23 +120,25 @@ def parse_mice(db: Session) -> dict:
 
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(_fetch_wb_data, "игровая мышь")
-            products, details = future.result(timeout=60)
+            future = executor.submit(_fetch_wb_products)
+            products = future.result(timeout=90)
     except Exception as e:
         return {"added": 0, "updated": 0, "failed": 0, "error": str(e)}
 
     if not products:
         return {"added": 0, "updated": 0, "failed": 0}
 
-    details_map = {d["id"]: d for d in details}
-
     for product in products:
         try:
             pid = product["id"]
-            options = details_map.get(pid, {}).get("options", [])
-            chars = _map_mouse_characteristics(options)
             wb_sku = str(pid)
-            price = product.get("priceU", 0) / 100
+            name = product.get("name", "")
+            brand = product.get("brand", "")
+            weight_kg = product.get("weight")
+            weight_g = round(weight_kg * 1000, 1) if weight_kg else None
+            sizes = product.get("sizes", [])
+            price_raw = sizes[0].get("price", {}).get("product", 0) if sizes else 0
+            price = price_raw / 100
 
             existing = db.query(Mouse).filter(Mouse.wb_sku == wb_sku).first()
             if existing:
@@ -169,13 +148,16 @@ def parse_mice(db: Session) -> dict:
                 updated += 1
             else:
                 db.add(Mouse(
-                    name=product.get("name", ""),
-                    brand=product.get("brand", ""),
+                    name=name,
+                    brand=brand,
                     price=price,
                     wb_sku=wb_sku,
                     wb_url=f"https://www.wildberries.ru/catalog/{pid}/detail.aspx",
                     image_url=_build_image_url(pid),
-                    **chars,
+                    weight_g=weight_g,
+                    connection_types=None,
+                    sensor=None,
+                    switches=None,
                 ))
                 db.commit()
                 added += 1
