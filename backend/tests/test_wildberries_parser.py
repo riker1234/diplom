@@ -61,3 +61,77 @@ def test_build_image_url_contains_product_id():
     assert "12345678" in url
     assert url.startswith("https://basket-")
     assert url.endswith("1.webp")
+
+
+# ── Тесты API-клиента и parse_mice ───────────────────────────────────────────
+
+from unittest.mock import patch, MagicMock
+from app.parsers.wildberries import _search_wb, _fetch_details, parse_mice
+from app.models.mouse import Mouse
+
+_FAKE_SEARCH_RESPONSE = {
+    "data": {
+        "products": [
+            {"id": 12345678, "name": "Игровая мышь Test", "brand": "TestBrand", "priceU": 199000},
+        ]
+    }
+}
+
+_FAKE_DETAIL_RESPONSE = {
+    "data": {
+        "products": [
+            {
+                "id": 12345678,
+                "options": [
+                    {"name": "Вес", "value": "70 г"},
+                    {"name": "Тип подключения", "value": "USB"},
+                ],
+            }
+        ]
+    }
+}
+
+
+def test_search_wb_returns_products():
+    with patch("app.parsers.wildberries.requests.get") as mock_get:
+        mock_get.return_value.json.return_value = _FAKE_SEARCH_RESPONSE
+        mock_get.return_value.raise_for_status = MagicMock()
+        result = _search_wb("игровая мышь")
+    assert len(result) == 1
+    assert result[0]["id"] == 12345678
+
+
+def test_fetch_details_returns_products():
+    with patch("app.parsers.wildberries.requests.get") as mock_get:
+        mock_get.return_value.json.return_value = _FAKE_DETAIL_RESPONSE
+        mock_get.return_value.raise_for_status = MagicMock()
+        result = _fetch_details([12345678])
+    assert len(result) == 1
+    assert result[0]["id"] == 12345678
+
+
+def test_parse_mice_adds_new_product(db):
+    with patch("app.parsers.wildberries._search_wb", return_value=_FAKE_SEARCH_RESPONSE["data"]["products"]):
+        with patch("app.parsers.wildberries._fetch_details", return_value=_FAKE_DETAIL_RESPONSE["data"]["products"]):
+            result = parse_mice(db)
+    assert result["added"] == 1
+    assert result["updated"] == 0
+    assert result["failed"] == 0
+    mouse = db.query(Mouse).filter(Mouse.wb_sku == "12345678").first()
+    assert mouse is not None
+    assert mouse.weight_g == 70.0
+    assert mouse.price == 1990.0
+
+
+def test_parse_mice_updates_existing_product(db):
+    existing = Mouse(name="Old Name", price=1000.0, wb_sku="99999999")
+    db.add(existing)
+    db.commit()
+    updated_search = [{"id": 99999999, "name": "New Name", "brand": "Brand", "priceU": 250000}]
+    with patch("app.parsers.wildberries._search_wb", return_value=updated_search):
+        with patch("app.parsers.wildberries._fetch_details", return_value=[]):
+            result = parse_mice(db)
+    assert result["updated"] == 1
+    assert result["added"] == 0
+    mouse = db.query(Mouse).filter(Mouse.wb_sku == "99999999").first()
+    assert mouse.price == 2500.0
