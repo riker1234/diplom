@@ -286,7 +286,7 @@ HTTP Request → Router → Recommendation Engine → ORM Query → PostgreSQL
 | Сервис | Тип интеграции | Назначение |
 |---|---|---|
 | DNS-shop.ru | HTTP-парсинг (BeautifulSoup) | Источник товаров и цен |
-| Wildberries API | REST API (публичный) | Источник товаров и цен |
+| Wildberries | Selenium + внутренний REST API | Источник товаров и цен; headless Chrome с selenium-stealth обходит защиту от ботов |
 
 ## 3.7. Технологический стек
 
@@ -299,6 +299,8 @@ HTTP Request → Router → Recommendation Engine → ORM Query → PostgreSQL
 | База данных | PostgreSQL | 15 |
 | DB-драйвер | psycopg[binary] | 3.x |
 | Парсинг HTML | BeautifulSoup4 | 4.12 |
+| Браузерная автоматизация | Selenium + selenium-stealth | 4.x |
+| Управление драйвером | webdriver-manager | 4.x |
 | Фоновые задачи | APScheduler | 3.10 |
 | Frontend | React + Vite | 18 / 5 |
 | HTTP-клиент (FE) | Axios | — |
@@ -545,7 +547,7 @@ HTTP Request → Router → Recommendation Engine → ORM Query → PostgreSQL
 | GET | `/mousepads/{id}` | Коврик по ID |
 | GET | `/recommend/questions/{category}` | Вопросник для категории |
 | POST | `/recommend/` | Подбор по ответам анкеты |
-| POST | `/admin/update-data` | Запуск обновления базы товаров |
+| POST | `/admin/parse/mice` | Запуск парсера мышей (защищён X-Admin-Key) |
 
 ## 7.2. Форматы запросов
 
@@ -605,7 +607,7 @@ sensor=PixArt&connection=USB&weight_max=90&price_min=1000&price_max=5000
 
 ## 7.5. Авторизация и доступ
 
-Авторизация в MVP отсутствует. Эндпоинт `/admin/update-data` защищён секретным ключом в заголовке `X-Admin-Key` (значение из `.env`).
+Авторизация в MVP отсутствует. Эндпоинт `/admin/parse/mice` защищён секретным ключом в заголовке `X-Admin-Key` (значение из `.env`).
 
 ## 7.6. Примеры API-запросов
 
@@ -777,7 +779,8 @@ alembic downgrade -1
 ## 12.3. Какие ограничения остались
 
 - Нет авторизации и сохранения истории подборов.
-- Данные зависят от стабильности парсеров (DNS/WB могут изменить структуру страниц).
+- Данные зависят от стабильности парсеров (DNS/WB могут изменить структуру страниц или усилить защиту).
+- Характеристики мышей (`sensor`, `switches`, `connection_types`) не заполнены из-за ограничения CORS при запросе к API деталей товара с другого домена.
 - Нет ML-рекомендаций — только правиловая фильтрация.
 - Развёртывание только локальное, не облачное.
 - Охват только 6 категорий периферии.
