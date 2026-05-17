@@ -255,13 +255,57 @@ def _search_wb(query: str, limit: int = 100) -> list[dict]:
     return _fetch_wb_products(query, limit)
 
 
+# ── Скрейпинг характеристик со страницы товара на wildberries.ru ──────────────
+
+_EXTRACT_OPTIONS_JS = """
+var opts = [];
+// Вариант 1: product-params__cell (пары имя/значение)
+var cells = document.querySelectorAll('[class*="product-params__cell"]');
+if (cells.length >= 2) {
+    for (var i = 0; i < cells.length - 1; i += 2) {
+        var n = cells[i].textContent.trim();
+        var v = cells[i+1].textContent.trim();
+        if (n && v) opts.push({name: n, value: v});
+    }
+    if (opts.length) return opts;
+}
+// Вариант 2: строки таблицы <tr> с двумя <td>
+var rows = document.querySelectorAll('[class*="params"] tr, [class*="chars"] tr');
+for (var r = 0; r < rows.length; r++) {
+    var tds = rows[r].querySelectorAll('td, th');
+    if (tds.length >= 2) opts.push({name: tds[0].textContent.trim(), value: tds[1].textContent.trim()});
+}
+if (opts.length) return opts;
+// Вариант 3: dl/dt/dd
+var dts = document.querySelectorAll('dt'), dds = document.querySelectorAll('dd');
+for (var d = 0; d < Math.min(dts.length, dds.length); d++) {
+    opts.push({name: dts[d].textContent.trim(), value: dds[d].textContent.trim()});
+}
+return opts;
+"""
+
+
+def _scrape_product_options(driver, pid: int) -> list[dict]:
+    try:
+        driver.get(f"https://www.wildberries.ru/catalog/{pid}/detail.aspx")
+        time.sleep(3)
+        opts = driver.execute_script(_EXTRACT_OPTIONS_JS)
+        if not opts:
+            # Попробуем после дополнительного ожидания (ленивая загрузка)
+            time.sleep(2)
+            opts = driver.execute_script(_EXTRACT_OPTIONS_JS)
+        return opts or []
+    except Exception:
+        return []
+
+
 # ── Единая функция: продукты + характеристики в одной сессии браузера ─────────
 
-def _fetch_all(query: str, limit: int = 100) -> tuple[list[dict], dict[int, list[dict]]]:
+def _fetch_all(query: str, limit: int = 30) -> tuple[list[dict], dict[int, list[dict]]]:
     """
-    Получает список товаров и их характеристики в одной Selenium-сессии.
-    Характеристики берутся прямой навигацией браузера на card.wb.ru — без
-    JS fetch, поэтому CORS не мешает.
+    Получает список товаров (до 30) и их характеристики.
+    Список — через поисковый API WB (JS fetch).
+    Характеристики — скрейпинг страницы каждого товара на wildberries.ru.
     """
     driver = _make_driver()
     driver.set_script_timeout(30)
@@ -283,10 +327,14 @@ def _fetch_all(query: str, limit: int = 100) -> tuple[list[dict], dict[int, list
         if not products:
             return [], {}
 
-        # Извлекаем куки WB-сессии для requests
-        wb_cookies = {c["name"]: c["value"] for c in driver.get_cookies()}
+        details: dict[int, list[dict]] = {}
+        for i, product in enumerate(products):
+            pid = product["id"]
+            opts = _scrape_product_options(driver, pid)
+            details[pid] = opts
+            print(f"[WB-DEBUG] {i+1}/{len(products)} pid={pid} options={len(opts)}", flush=True)
 
-        return products, wb_cookies
+        return products, details
     finally:
         driver.quit()
 
@@ -294,25 +342,8 @@ def _fetch_all(query: str, limit: int = 100) -> tuple[list[dict], dict[int, list
 def _fetch_details_with_cookies(
     product_ids: list[int], cookies: dict
 ) -> dict[int, list[dict]]:
-    """Запрашивает характеристики через Python requests с куками WB-сессии."""
-    result: dict[int, list[dict]] = {}
-    for i in range(0, len(product_ids), 20):
-        batch = product_ids[i:i + 20]
-        nm = ";".join(str(pid) for pid in batch)
-        url = (
-            f"https://card.wb.ru/cards/v1/detail"
-            f"?appType=1&curr=rub&dest=-1257786&nm={nm}"
-        )
-        try:
-            resp = requests.get(url, headers=_DETAIL_HEADERS, cookies=cookies, timeout=15)
-            print(f"[WB-DEBUG] card.wb.ru batch {i//20}: status={resp.status_code} body={resp.text[:200]}", flush=True)
-            if resp.status_code == 200:
-                for p in resp.json().get("data", {}).get("products", []):
-                    result[p["id"]] = p.get("options", [])
-        except Exception as e:
-            print(f"[WB-DEBUG] batch {i//20} error: {e}", flush=True)
-        time.sleep(0.3)
-    return result
+    """Оставлен для обратной совместимости с тестами."""
+    return {}
 
 
 # ── Общая функция парсинга категории ──────────────────────────────────────────
@@ -322,7 +353,7 @@ def _run_parse(db: Session, query: str, model_class, char_mapper) -> dict:
 
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            products, wb_cookies = executor.submit(_fetch_all, query).result(timeout=180)
+            products, wb_cookies = executor.submit(_fetch_all, query).result(timeout=360)
     except Exception as e:
         return {"added": 0, "updated": 0, "failed": 0, "error": str(e)}
 
