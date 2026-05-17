@@ -189,17 +189,10 @@ def test_build_image_url_contains_product_id():
 # ── _fetch_details ─────────────────────────────────────────────────────────────
 
 _FAKE_DETAIL_RESPONSE = {
-    "data": {
-        "products": [
-            {
-                "id": 12345678,
-                "options": [
-                    {"name": "Вес", "value": "70 г"},
-                    {"name": "Тип подключения", "value": "USB"},
-                ],
-            }
-        ]
-    }
+    "options": [
+        {"name": "Вес", "value": "70 г"},
+        {"name": "Тип подключения", "value": "USB"},
+    ]
 }
 
 

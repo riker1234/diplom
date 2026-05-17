@@ -1,6 +1,7 @@
 import re
 import time
 import json
+import random
 import concurrent.futures
 import requests
 from urllib.parse import quote
@@ -255,59 +256,41 @@ def _search_wb(query: str, limit: int = 100) -> list[dict]:
     return _fetch_wb_products(query, limit)
 
 
-# ── Получение характеристик через SSR-страницу товара (__NEXT_DATA__) ─────────
+# ── Характеристики через CDN WB (basket-XX.wbbasket.ru/…/card.json) ──────────
 
-def _fetch_options_from_page(pid: int, cookies: dict) -> list[dict]:
+def _build_card_json_url(product_id: int) -> str:
+    vol = product_id // 100000
+    part = product_id // 1000
+    basket = _get_basket(vol)
+    return f"https://basket-{basket}.wbbasket.ru/vol{vol}/part{part}/{product_id}/info/ru/card.json"
+
+
+def _fetch_details(product_ids: list[int]) -> dict[int, list[dict]]:
     """
-    Запрашивает страницу товара через requests и ищет характеристики
-    в __NEXT_DATA__ (Next.js SSR JSON, встроен в HTML).
+    Получает характеристики товаров напрямую с CDN WB (card.json).
+    Не требует авторизации и обходит блокировки card.wb.ru.
     """
-    url = f"https://www.wildberries.ru/catalog/{pid}/detail.aspx"
-    try:
-        resp = requests.get(url, headers=_DETAIL_HEADERS, cookies=cookies, timeout=15)
-        if resp.status_code != 200:
-            return []
-        m = re.search(r'<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)</script>', resp.text)
-        if not m:
-            return []
-        next_data = json.loads(m.group(1))
-        # Ищем options/params в дереве данных
-        return _extract_options_from_next_data(next_data)
-    except Exception:
-        return []
-
-
-def _extract_options_from_next_data(data, _depth: int = 0) -> list[dict]:
-    """Рекурсивно ищет список [{name, value}, ...] в дереве __NEXT_DATA__."""
-    if _depth > 8:
-        return []
-    if isinstance(data, list):
-        if data and isinstance(data[0], dict) and "name" in data[0] and "value" in data[0]:
-            return data
-        for item in data:
-            found = _extract_options_from_next_data(item, _depth + 1)
-            if found:
-                return found
-    elif isinstance(data, dict):
-        for key in ("options", "params", "characteristics", "specs"):
-            if key in data and isinstance(data[key], list):
-                found = _extract_options_from_next_data(data[key], _depth + 1)
-                if found:
-                    return found
-        for v in data.values():
-            found = _extract_options_from_next_data(v, _depth + 1)
-            if found:
-                return found
-    return []
+    result: dict[int, list[dict]] = {}
+    for pid in product_ids:
+        url = _build_card_json_url(pid)
+        try:
+            resp = requests.get(url, headers=_DETAIL_HEADERS, timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                options = data.get("options", data.get("grouped_params", []))
+                result[pid] = options
+        except Exception:
+            pass
+        time.sleep(random.uniform(0.3, 0.8))
+    return result
 
 
 # ── Единая функция: продукты + характеристики ─────────────────────────────────
 
-def _fetch_all(query: str, limit: int = 30) -> tuple[list[dict], dict[int, list[dict]]]:
+def _fetch_all(query: str, limit: int = 50) -> tuple[list[dict], dict[int, list[dict]]]:
     """
-    Список товаров — через поисковый API WB (Selenium).
-    Характеристики — Python requests на страницу товара, парсинг __NEXT_DATA__.
-    Selenium используется только один раз для получения продуктов и кук.
+    Список товаров — через поисковый API WB (Selenium, один запуск).
+    Характеристики — напрямую с CDN basket-XX.wbbasket.ru через requests.
     """
     driver = _make_driver()
     driver.set_script_timeout(30)
@@ -326,20 +309,16 @@ def _fetch_all(query: str, limit: int = 30) -> tuple[list[dict], dict[int, list[
         if not isinstance(result, dict) or "error" in result:
             return [], {}
         products = result.get("products", [])[:limit]
-        wb_cookies = {c["name"]: c["value"] for c in driver.get_cookies()}
     finally:
         driver.quit()
 
     if not products:
         return [], {}
 
-    details: dict[int, list[dict]] = {}
-    for i, product in enumerate(products):
-        pid = product["id"]
-        opts = _fetch_options_from_page(pid, wb_cookies)
-        details[pid] = opts
-        if i == 0:
-            print(f"[WB-DEBUG] pid={pid} opts={len(opts)} sample={opts[:2]}", flush=True)
+    details = _fetch_details([p["id"] for p in products])
+    if products:
+        pid0 = products[0]["id"]
+        print(f"[WB-DEBUG] pid={pid0} opts={len(details.get(pid0, []))} sample={details.get(pid0, [])[:2]}", flush=True)
 
     return products, details
 
