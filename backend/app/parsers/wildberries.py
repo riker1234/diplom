@@ -1,6 +1,8 @@
 import re
 import time
 import concurrent.futures
+import requests
+from urllib.parse import quote
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -8,41 +10,149 @@ from selenium_stealth import stealth
 from webdriver_manager.chrome import ChromeDriverManager
 from sqlalchemy.orm import Session
 from app.models.mouse import Mouse
+from app.models.keyboard import Keyboard
+from app.models.monitor import Monitor
+from app.models.headphones import Headphones
+from app.models.microphone import Microphone
+from app.models.mousepad import Mousepad
 
-_WEIGHT_KEYS = {"вес", "масса"}
-_CONNECTION_KEYS = {"тип подключения", "интерфейс"}
-_SENSOR_KEYS = {"сенсор", "тип сенсора"}
-_SWITCH_KEYS = {"переключатели", "микровыключатели"}
+# ── Ключи характеристик WB (русские названия полей из options) ─────────────────
 
-_SEARCH_URL = (
-    "https://www.wildberries.ru/__internal/u-search/exactmatch/ru/common/v18/search"
-    "?ab_testing=false&appType=1&curr=rub&dest=-1257786"
-    "&query=%D0%B8%D0%B3%D1%80%D0%BE%D0%B2%D0%B0%D1%8F+%D0%BC%D1%8B%D1%88%D1%8C"
-    "&resultset=catalog&sort=popular&spp=30&suppressSpellcheck=false"
-)
+_MOUSE_KEYS = {
+    "weight":           {"вес", "масса"},
+    "connection_types": {"тип подключения", "интерфейс"},
+    "sensor":           {"сенсор", "тип сенсора"},
+    "switches":         {"переключатели", "микровыключатели"},
+}
+
+_KEYBOARD_KEYS = {
+    "switches":             {"переключатели", "тип переключателей"},
+    "form_factor":          {"форм-фактор", "конструкция"},
+    "board_material":       {"материал корпуса"},
+    "keycap_material":      {"материал кейкапов", "материал колпачков"},
+    "keycap_manufacturing": {"способ нанесения символов", "нанесение символов"},
+    "connection_types":     {"тип подключения", "интерфейс"},
+}
+
+_MONITOR_KEYS = {
+    "diagonal_inch":   {"диагональ", "размер экрана"},
+    "resolution":      {"разрешение"},
+    "refresh_rate_hz": {"частота обновления", "максимальная частота обновления"},
+    "matrix_type":     {"тип матрицы", "тип панели"},
+}
+
+_HEADPHONES_KEYS = {
+    "construction_type":  {"конструкция", "тип конструкции"},
+    "connection_types":   {"тип подключения", "интерфейс"},
+    "has_microphone":     {"микрофон", "встроенный микрофон"},
+    "noise_cancellation": {"шумоподавление", "активное шумоподавление"},
+}
+
+_MICROPHONE_KEYS = {
+    "mic_type":         {"тип микрофона", "тип капсюля"},
+    "directionality":   {"направленность", "полярная диаграмма"},
+    "connection_types": {"тип подключения", "интерфейс"},
+    "frequency_range":  {"диапазон частот", "частотный диапазон"},
+}
+
+_MOUSEPAD_KEYS = {
+    "size":             {"размер", "габариты"},
+    "surface_material": {"материал поверхности", "материал"},
+    "hardness":         {"жёсткость", "тип поверхности"},
+    "has_rgb":          {"подсветка", "rgb-подсветка"},
+}
+
+# ── Вспомогательные парсеры значений ──────────────────────────────────────────
+
+def _parse_float(value: str) -> float | None:
+    m = re.search(r"[\d]+[.,]?[\d]*", value)
+    return float(m.group().replace(",", ".")) if m else None
 
 
-def _parse_weight(value: str) -> float | None:
-    match = re.search(r"[\d]+[.,]?[\d]*", value)
-    if match:
-        return float(match.group().replace(",", "."))
-    return None
+def _parse_int(value: str) -> int | None:
+    m = re.search(r"\d+", value)
+    return int(m.group()) if m else None
 
 
-def _map_mouse_characteristics(options: list[dict]) -> dict:
-    result = {"weight_g": None, "connection_types": None, "sensor": None, "switches": None}
+def _parse_bool(value: str) -> bool:
+    return value.strip().lower() in ("да", "есть", "yes", "+", "true")
+
+
+# ── Общий маппер: options → dict ──────────────────────────────────────────────
+
+def _map_options(options: list[dict], keys_map: dict) -> dict:
+    result: dict = {k: None for k in keys_map}
     for opt in options:
         name = opt.get("name", "").lower().strip()
         value = opt.get("value", "").strip()
-        if name in _WEIGHT_KEYS:
-            result["weight_g"] = _parse_weight(value)
-        elif name in _CONNECTION_KEYS:
-            result["connection_types"] = value
-        elif name in _SENSOR_KEYS:
-            result["sensor"] = value
-        elif name in _SWITCH_KEYS:
-            result["switches"] = value
+        for field, key_set in keys_map.items():
+            if name in key_set:
+                result[field] = value
+                break
     return result
+
+
+# ── Маппер характеристик для каждой категории ─────────────────────────────────
+
+def _map_mouse(options: list[dict]) -> dict:
+    raw = _map_options(options, _MOUSE_KEYS)
+    weight_str = raw.get("weight")
+    return {
+        "weight_g":         _parse_float(weight_str) if weight_str else None,
+        "connection_types": raw.get("connection_types"),
+        "sensor":           raw.get("sensor"),
+        "switches":         raw.get("switches"),
+    }
+
+
+def _map_keyboard(options: list[dict]) -> dict:
+    return _map_options(options, _KEYBOARD_KEYS)
+
+
+def _map_monitor(options: list[dict]) -> dict:
+    raw = _map_options(options, _MONITOR_KEYS)
+    return {
+        "diagonal_inch":   _parse_float(raw["diagonal_inch"])   if raw["diagonal_inch"]   else None,
+        "resolution":      raw["resolution"],
+        "refresh_rate_hz": _parse_int(raw["refresh_rate_hz"])   if raw["refresh_rate_hz"] else None,
+        "matrix_type":     raw["matrix_type"],
+    }
+
+
+def _map_headphones(options: list[dict]) -> dict:
+    raw = _map_options(options, _HEADPHONES_KEYS)
+    has_mic_str = raw.get("has_microphone")
+    return {
+        "construction_type":  raw.get("construction_type"),
+        "connection_types":   raw.get("connection_types"),
+        "has_microphone":     _parse_bool(has_mic_str) if has_mic_str else False,
+        "noise_cancellation": raw.get("noise_cancellation"),
+    }
+
+
+def _map_microphone(options: list[dict]) -> dict:
+    return _map_options(options, _MICROPHONE_KEYS)
+
+
+def _map_mousepad(options: list[dict]) -> dict:
+    raw = _map_options(options, _MOUSEPAD_KEYS)
+    has_rgb_str = raw.get("has_rgb")
+    return {
+        "size":             raw.get("size"),
+        "surface_material": raw.get("surface_material"),
+        "hardness":         raw.get("hardness"),
+        "has_rgb":          _parse_bool(has_rgb_str) if has_rgb_str else False,
+    }
+
+
+# ── URL-строители ──────────────────────────────────────────────────────────────
+
+def _build_search_url(query: str) -> str:
+    return (
+        "https://www.wildberries.ru/__internal/u-search/exactmatch/ru/common/v18/search"
+        f"?ab_testing=false&appType=1&curr=rub&dest=-1257786"
+        f"&query={quote(query)}&resultset=catalog&sort=popular&spp=30&suppressSpellcheck=false"
+    )
 
 
 def _get_basket(vol: int) -> str:
@@ -63,6 +173,8 @@ def _build_image_url(product_id: int) -> str:
     basket = _get_basket(vol)
     return f"https://basket-{basket}.wbbasket.ru/vol{vol}/part{part}/{product_id}/images/big/1.webp"
 
+
+# ── Selenium: список товаров из поиска WB ─────────────────────────────────────
 
 def _make_driver() -> webdriver.Chrome:
     options = Options()
@@ -87,46 +199,76 @@ def _make_driver() -> webdriver.Chrome:
     return driver
 
 
-def _fetch_wb_products(limit: int = 100) -> list[dict]:
+def _fetch_wb_products(query: str, limit: int = 100) -> list[dict]:
     driver = _make_driver()
+    search_url = _build_search_url(query)
     try:
         driver.get("https://www.wildberries.ru/")
         time.sleep(5)
         result = driver.execute_async_script(f"""
             var callback = arguments[arguments.length - 1];
-            fetch('{_SEARCH_URL}')
+            fetch('{search_url}')
                 .then(r => r.json())
                 .then(data => callback(data))
                 .catch(e => callback({{error: e.toString()}}))
         """)
-        if "error" in result:
+        if not isinstance(result, dict) or "error" in result:
             return []
         return result.get("products", [])[:limit]
     finally:
         driver.quit()
 
 
-# Оставляем для совместимости с тестами
+# ── Requests: характеристики из detail API (минует CORS) ──────────────────────
+
+_DETAIL_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json",
+    "Referer": "https://www.wildberries.ru/",
+}
+
+
+def _fetch_details(product_ids: list[int]) -> dict[int, list[dict]]:
+    result: dict[int, list[dict]] = {}
+    for i in range(0, len(product_ids), 20):
+        batch = product_ids[i:i + 20]
+        nm = ";".join(str(pid) for pid in batch)
+        url = f"https://card.wb.ru/cards/v1/detail?appType=1&curr=rub&dest=-1257786&nm={nm}"
+        try:
+            resp = requests.get(url, headers=_DETAIL_HEADERS, timeout=15)
+            if resp.status_code == 200:
+                for p in resp.json().get("data", {}).get("products", []):
+                    result[p["id"]] = p.get("options", [])
+        except Exception:
+            pass
+        time.sleep(0.3)
+    return result
+
+
+# ── Совместимость с тестами (старый интерфейс) ────────────────────────────────
+
 def _search_wb(query: str, limit: int = 100) -> list[dict]:
-    return _fetch_wb_products(limit)
+    return _fetch_wb_products(query, limit)
 
 
-def _fetch_details(product_ids: list[int]) -> list[dict]:
-    return []
+# ── Общая функция парсинга категории ──────────────────────────────────────────
 
-
-def parse_mice(db: Session) -> dict:
+def _run_parse(db: Session, query: str, model_class, char_mapper) -> dict:
     added = updated = failed = 0
 
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(_fetch_wb_products)
-            products = future.result(timeout=90)
+            products = executor.submit(_fetch_wb_products, query).result(timeout=120)
     except Exception as e:
         return {"added": 0, "updated": 0, "failed": 0, "error": str(e)}
 
     if not products:
         return {"added": 0, "updated": 0, "failed": 0}
+
+    details = _fetch_details([p["id"] for p in products])
 
     for product in products:
         try:
@@ -134,30 +276,30 @@ def parse_mice(db: Session) -> dict:
             wb_sku = str(pid)
             name = product.get("name", "")
             brand = product.get("brand", "")
-            weight_kg = product.get("weight")
-            weight_g = round(weight_kg * 1000, 1) if weight_kg else None
             sizes = product.get("sizes", [])
             price_raw = sizes[0].get("price", {}).get("product", 0) if sizes else 0
             price = price_raw / 100
 
-            existing = db.query(Mouse).filter(Mouse.wb_sku == wb_sku).first()
+            chars = char_mapper(details.get(pid, []))
+
+            existing = db.query(model_class).filter(model_class.wb_sku == wb_sku).first()
             if existing:
                 existing.price = price
                 existing.image_url = _build_image_url(pid)
+                for field, value in chars.items():
+                    if value is not None:
+                        setattr(existing, field, value)
                 db.commit()
                 updated += 1
             else:
-                db.add(Mouse(
+                db.add(model_class(
                     name=name,
                     brand=brand,
                     price=price,
                     wb_sku=wb_sku,
                     wb_url=f"https://www.wildberries.ru/catalog/{pid}/detail.aspx",
                     image_url=_build_image_url(pid),
-                    weight_g=weight_g,
-                    connection_types=None,
-                    sensor=None,
-                    switches=None,
+                    **chars,
                 ))
                 db.commit()
                 added += 1
@@ -166,3 +308,29 @@ def parse_mice(db: Session) -> dict:
             db.rollback()
 
     return {"added": added, "updated": updated, "failed": failed}
+
+
+# ── Публичные функции парсинга ─────────────────────────────────────────────────
+
+def parse_mice(db: Session) -> dict:
+    return _run_parse(db, "игровая мышь", Mouse, _map_mouse)
+
+
+def parse_keyboards(db: Session) -> dict:
+    return _run_parse(db, "механическая клавиатура игровая", Keyboard, _map_keyboard)
+
+
+def parse_monitors(db: Session) -> dict:
+    return _run_parse(db, "игровой монитор", Monitor, _map_monitor)
+
+
+def parse_headphones(db: Session) -> dict:
+    return _run_parse(db, "игровые наушники гарнитура", Headphones, _map_headphones)
+
+
+def parse_microphones(db: Session) -> dict:
+    return _run_parse(db, "usb микрофон компьютер", Microphone, _map_microphone)
+
+
+def parse_mousepads(db: Session) -> dict:
+    return _run_parse(db, "игровой коврик для мыши", Mousepad, _map_mousepad)
