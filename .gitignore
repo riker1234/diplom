@@ -6,6 +6,8 @@ backend/*.pyc
 backend/.env
 backend/test.db
 backend/test_api.db
+backend/test_admin.db
+backend/test_recommendation.db
 
 # Node
 frontend/node_modules/
