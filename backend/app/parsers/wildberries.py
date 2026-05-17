@@ -1,5 +1,6 @@
 import re
 import time
+import json
 import concurrent.futures
 import requests
 from urllib.parse import quote
@@ -258,9 +259,9 @@ def _search_wb(query: str, limit: int = 100) -> list[dict]:
 
 def _fetch_all(query: str, limit: int = 100) -> tuple[list[dict], dict[int, list[dict]]]:
     """
-    Fetches product list and their characteristics in a single Selenium session.
-    Details are fetched via execute_async_script from the wildberries.ru context,
-    which satisfies the CORS policy of card.wb.ru.
+    Получает список товаров и их характеристики в одной Selenium-сессии.
+    Характеристики берутся прямой навигацией браузера на card.wb.ru — без
+    JS fetch, поэтому CORS не мешает.
     """
     driver = _make_driver()
     driver.set_script_timeout(30)
@@ -292,13 +293,10 @@ def _fetch_all(query: str, limit: int = 100) -> tuple[list[dict], dict[int, list
                 f"?appType=1&curr=rub&dest=-1257786&nm={nm}"
             )
             try:
-                detail_data = driver.execute_async_script(f"""
-                    var callback = arguments[arguments.length - 1];
-                    fetch('{detail_url}')
-                        .then(r => r.json())
-                        .then(data => callback(data))
-                        .catch(e => callback({{error: e.toString()}}))
-                """)
+                driver.get(detail_url)
+                time.sleep(1)
+                raw = driver.execute_script("return document.body.innerText")
+                detail_data = json.loads(raw)
                 if isinstance(detail_data, dict) and "data" in detail_data:
                     for p in detail_data["data"].get("products", []):
                         details[p["id"]] = p.get("options", [])
