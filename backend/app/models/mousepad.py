@@ -12,6 +12,8 @@ class Mousepad(Base, TimestampMixin):
     surface_material = Column(String)
     hardness = Column(String)
     has_rgb = Column(Boolean, default=False)
+    color = Column(String)
+    thickness_mm = Column(Float)
     price = Column(Float)
     ozon_sku = Column(String, unique=True, nullable=True)
     ozon_url = Column(String, nullable=True)

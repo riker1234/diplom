@@ -94,39 +94,57 @@ _MOUSE_KEYS = {
 
 _KEYBOARD_KEYS = {
     "switches":             {"тип переключателей", "переключатели", "тип свитчей"},
-    "form_factor":          {"форм-фактор", "размер клавиатуры", "конструкция"},
-    "board_material":       {"материал корпуса"},
+    "form_factor":          {"форм-фактор", "размер клавиатуры", "конструкция", "форма"},
+    "board_material":       {"материал корпуса", "основной материал корпуса"},
     "keycap_material":      {"материал клавиш", "материал кейкапов"},
     "keycap_manufacturing": {"способ нанесения символов", "нанесение символов"},
-    "connection_types":     {"тип подключения", "интерфейс"},
+    "connection_types":     {"тип подключения", "интерфейс", "тип соединения"},
+    "has_rgb":              {"подсветка", "rgb подсветка", "rgb-подсветка"},
+    "layout":               {"раскладка клавиатуры", "раскладка", "языковая раскладка"},
+    "key_count":            {"количество клавиш", "кол-во клавиш"},
+    "color":                {"цвет"},
 }
 
 _MONITOR_KEYS = {
-    "diagonal_inch":   {"диагональ экрана", "диагональ", "размер экрана"},
-    "resolution":      {"разрешение экрана", "разрешение"},
-    "refresh_rate_hz": {"частота обновления экрана", "частота обновления"},
-    "matrix_type":     {"тип матрицы", "тип панели"},
+    "diagonal_inch":    {"диагональ экрана, дюймы", "диагональ экрана", "диагональ", "размер экрана"},
+    "resolution":       {"разрешение экрана", "разрешение"},
+    "refresh_rate_hz":  {"макс. частота обновления, гц", "частота обновления экрана", "частота обновления"},
+    "matrix_type":      {"матрица монитора", "тип матрицы", "тип панели"},
+    "response_time_ms": {"время отклика, мс", "время отклика", "время реакции"},
+    "brightness_nits":  {"яркость, кд/м2", "яркость", "максимальная яркость"},
+    "hdr":              {"технология hdr", "hdr", "поддержка hdr"},
+    "color":            {"цвет"},
 }
 
 _HEADPHONES_KEYS = {
-    "construction_type":  {"конструкция", "тип конструкции"},
-    "connection_types":   {"тип подключения", "интерфейс"},
+    "construction_type":  {"конструкция", "тип конструкции", "конструкция наушников"},
+    "connection_types":   {"тип подключения", "интерфейс", "подключение", "тип беспроводной связи"},
     "has_microphone":     {"наличие микрофона", "микрофон"},
     "noise_cancellation": {"шумоподавление", "активное шумоподавление"},
+    "freq_min":           {"мин. частота, гц", "минимальная частота"},
+    "freq_max":           {"макс. частота, гц", "максимальная частота"},
+    "impedance_ohm":      {"импеданс, ом", "импеданс", "сопротивление"},
+    "color":              {"цвет"},
+    "has_rgb":            {"подсветка", "rgb подсветка", "rgb-подсветка"},
 }
 
 _MICROPHONE_KEYS = {
-    "mic_type":         {"тип микрофона", "тип капсюля"},
-    "directionality":   {"направленность", "полярная диаграмма"},
-    "connection_types": {"тип подключения", "интерфейс"},
+    "mic_type":         {"технология микрофона", "тип микрофона", "тип капсюля"},
+    "directionality":   {"диаграмма направленности", "направленность", "полярная диаграмма"},
+    "connection_types": {"интерфейсы и разъемы", "тип подключения", "интерфейс"},
     "frequency_range":  {"диапазон частот", "частотный диапазон"},
+    "sample_rate":      {"частота дискретизации", "частота дискретизации звука"},
+    "bit_depth":        {"разрядность", "разрядность звука"},
+    "color":            {"цвет"},
 }
 
 _MOUSEPAD_KEYS = {
     "size":             {"размер", "габариты"},
     "surface_material": {"материал поверхности", "материал"},
-    "hardness":         {"жёсткость", "тип поверхности"},
-    "has_rgb":          {"подсветка", "rgb-подсветка"},
+    "hardness":         {"жёсткость", "тип поверхности", "характеристика покрытия"},
+    "has_rgb":          {"подсветка", "rgb-подсветка", "rgb подсветка"},
+    "color":            {"цвет"},
+    "thickness_mm":     {"толщина, мм", "толщина"},
 }
 
 
@@ -181,42 +199,89 @@ def _map_mouse(options: list[dict]) -> dict:
 
 
 def _map_keyboard(options: list[dict]) -> dict:
-    return _map_options(options, _KEYBOARD_KEYS)
+    raw = _map_options(options, _KEYBOARD_KEYS)
+    has_rgb_str = raw.get("has_rgb")
+    key_count_str = raw.get("key_count")
+    return {
+        "switches":             raw.get("switches"),
+        "form_factor":          raw.get("form_factor"),
+        "board_material":       raw.get("board_material"),
+        "keycap_material":      raw.get("keycap_material"),
+        "keycap_manufacturing": raw.get("keycap_manufacturing"),
+        "connection_types":     raw.get("connection_types"),
+        "has_rgb":              _parse_bool(has_rgb_str) if has_rgb_str else False,
+        "layout":               raw.get("layout"),
+        "key_count":            _parse_int(key_count_str) if key_count_str else None,
+        "color":                raw.get("color"),
+    }
 
 
 def _map_monitor(options: list[dict]) -> dict:
     raw = _map_options(options, _MONITOR_KEYS)
+    hdr_str = raw.get("hdr")
+    brightness_str = raw.get("brightness_nits")
+    response_str = raw.get("response_time_ms")
     return {
-        "diagonal_inch":   _parse_float(raw["diagonal_inch"])   if raw["diagonal_inch"]   else None,
-        "resolution":      raw["resolution"],
-        "refresh_rate_hz": _parse_int(raw["refresh_rate_hz"])   if raw["refresh_rate_hz"] else None,
-        "matrix_type":     raw["matrix_type"],
+        "diagonal_inch":    _parse_float(raw["diagonal_inch"])   if raw["diagonal_inch"]   else None,
+        "resolution":       raw["resolution"],
+        "refresh_rate_hz":  _parse_int(raw["refresh_rate_hz"])   if raw["refresh_rate_hz"] else None,
+        "matrix_type":      raw["matrix_type"],
+        "response_time_ms": _parse_float(response_str) if response_str else None,
+        "brightness_nits":  _parse_int(brightness_str) if brightness_str else None,
+        "hdr":              _parse_bool(hdr_str) if hdr_str else False,
+        "color":            raw.get("color"),
     }
 
 
 def _map_headphones(options: list[dict]) -> dict:
     raw = _map_options(options, _HEADPHONES_KEYS)
     has_mic_str = raw.get("has_microphone")
+    has_rgb_str = raw.get("has_rgb")
+    freq_min = raw.get("freq_min")
+    freq_max = raw.get("freq_max")
+    if freq_min and freq_max:
+        freq_min_val = _parse_int(freq_min)
+        freq_max_val = _parse_int(freq_max)
+        frequency_response = f"{freq_min_val}-{freq_max_val}" if freq_min_val and freq_max_val else None
+    else:
+        frequency_response = freq_min or freq_max
+    imp_str = raw.get("impedance_ohm")
     return {
         "construction_type":  raw.get("construction_type"),
         "connection_types":   raw.get("connection_types"),
         "has_microphone":     _parse_bool(has_mic_str) if has_mic_str else False,
         "noise_cancellation": raw.get("noise_cancellation"),
+        "frequency_response": frequency_response,
+        "impedance_ohm":      _parse_int(imp_str) if imp_str else None,
+        "color":              raw.get("color"),
+        "has_rgb":            _parse_bool(has_rgb_str) if has_rgb_str else False,
     }
 
 
 def _map_microphone(options: list[dict]) -> dict:
-    return _map_options(options, _MICROPHONE_KEYS)
+    raw = _map_options(options, _MICROPHONE_KEYS)
+    return {
+        "mic_type":         raw.get("mic_type"),
+        "directionality":   raw.get("directionality"),
+        "connection_types": raw.get("connection_types"),
+        "frequency_range":  raw.get("frequency_range"),
+        "sample_rate":      raw.get("sample_rate"),
+        "bit_depth":        raw.get("bit_depth"),
+        "color":            raw.get("color"),
+    }
 
 
 def _map_mousepad(options: list[dict]) -> dict:
     raw = _map_options(options, _MOUSEPAD_KEYS)
     has_rgb_str = raw.get("has_rgb")
+    thickness_str = raw.get("thickness_mm")
     return {
         "size":             raw.get("size"),
         "surface_material": raw.get("surface_material"),
         "hardness":         raw.get("hardness"),
         "has_rgb":          _parse_bool(has_rgb_str) if has_rgb_str else False,
+        "color":            raw.get("color"),
+        "thickness_mm":     _parse_float(thickness_str) if thickness_str else None,
     }
 
 
@@ -383,15 +448,22 @@ def _get_url(product: dict) -> str:
     return link.split("?")[0]
 
 
-def _run_parse(db: Session, query: str, model_class, char_mapper, limit: int = 8) -> dict:
-    added = updated = failed = 0
+def _run_parse(
+    db: Session,
+    query: str,
+    model_class,
+    char_mapper,
+    limit: int = 8,
+    required_fields: list[str] | None = None,
+) -> dict:
+    added = updated = failed = skipped = 0
     try:
         products, details = _fetch_all(query, limit)
     except Exception as e:
-        return {"added": 0, "updated": 0, "failed": 0, "error": str(e)}
+        return {"added": 0, "updated": 0, "failed": 0, "skipped": 0, "error": str(e)}
 
     if not products:
-        return {"added": 0, "updated": 0, "failed": 0}
+        return {"added": 0, "updated": 0, "failed": 0, "skipped": 0}
 
     for product in products:
         try:
@@ -419,6 +491,9 @@ def _run_parse(db: Session, query: str, model_class, char_mapper, limit: int = 8
                 db.commit()
                 updated += 1
             else:
+                if required_fields and all(chars.get(f) is None for f in required_fields):
+                    skipped += 1
+                    continue
                 db.add(model_class(
                     name=name,
                     brand=brand,
@@ -434,7 +509,7 @@ def _run_parse(db: Session, query: str, model_class, char_mapper, limit: int = 8
             failed += 1
             db.rollback()
 
-    return {"added": added, "updated": updated, "failed": failed}
+    return {"added": added, "updated": updated, "failed": failed, "skipped": skipped}
 
 
 def _backfill(db: Session, model_class, char_mapper, null_field: str) -> dict:
@@ -486,31 +561,92 @@ def parse_mice(db: Session) -> dict:
         "мышь gaming rgb",
         "мышь офисная беспроводная",
     ]
-    total = {"added": 0, "updated": 0, "failed": 0}
+    return _multi_parse(db, queries, Mouse, _map_mouse, required_fields=["sensor", "connection_types"])
+
+def _multi_parse(
+    db: Session,
+    queries: list[str],
+    model_class,
+    char_mapper,
+    limit: int = 8,
+    required_fields: list[str] | None = None,
+) -> dict:
+    total = {"added": 0, "updated": 0, "failed": 0, "skipped": 0}
     for q in queries:
-        r = _run_parse(db, q, Mouse, _map_mouse, limit=8)
+        r = _run_parse(db, q, model_class, char_mapper, limit=limit, required_fields=required_fields)
         if "error" in r:
             continue
         total["added"] += r.get("added", 0)
         total["updated"] += r.get("updated", 0)
         total["failed"] += r.get("failed", 0)
-        import time as _t; _t.sleep(1)
+        total["skipped"] += r.get("skipped", 0)
+        time.sleep(1)
     return total
 
+
 def parse_keyboards(db: Session) -> dict:
-    return _run_parse(db, "механическая клавиатура игровая", Keyboard, _map_keyboard)
+    queries = [
+        "механическая клавиатура игровая",
+        "клавиатура механическая cherry mx",
+        "клавиатура logitech механическая",
+        "клавиатура razer механическая",
+        "клавиатура full size механическая",
+        "клавиатура tkl механическая rgb",
+        "беспроводная клавиатура механическая",
+    ]
+    return _multi_parse(db, queries, Keyboard, _map_keyboard, required_fields=["switches", "connection_types"])
+
 
 def parse_monitors(db: Session) -> dict:
-    return _run_parse(db, "игровой монитор", Monitor, _map_monitor)
+    queries = [
+        "игровой монитор 144hz",
+        "игровой монитор 240hz",
+        "монитор 27 дюймов ips",
+        "монитор 24 дюйма gaming",
+        "монитор 4k игровой",
+        "монитор для игр 1ms",
+        "монитор curved изогнутый игровой",
+    ]
+    return _multi_parse(db, queries, Monitor, _map_monitor, required_fields=["matrix_type", "refresh_rate_hz"])
+
 
 def parse_headphones(db: Session) -> dict:
-    return _run_parse(db, "игровые наушники гарнитура", Headphones, _map_headphones)
+    queries = [
+        "игровые наушники гарнитура",
+        "наушники беспроводные игровые",
+        "гарнитура с микрофоном gaming",
+        "наушники logitech игровые",
+        "наушники razer gaming",
+        "наушники steelseries игровые",
+        "игровые наушники rgb",
+    ]
+    return _multi_parse(db, queries, Headphones, _map_headphones, required_fields=["construction_type"])
+
 
 def parse_microphones(db: Session) -> dict:
-    return _run_parse(db, "usb микрофон компьютер", Microphone, _map_microphone)
+    queries = [
+        "usb микрофон компьютер",
+        "конденсаторный микрофон usb",
+        "микрофон стриминговый",
+        "микрофон для подкаста",
+        "микрофон hyperx",
+        "микрофон rode стриминг",
+        "микрофон blue yeti",
+    ]
+    return _multi_parse(db, queries, Microphone, _map_microphone, required_fields=["mic_type"])
+
 
 def parse_mousepads(db: Session) -> dict:
-    return _run_parse(db, "игровой коврик для мыши", Mousepad, _map_mousepad)
+    queries = [
+        "игровой коврик для мыши",
+        "коврик xl большой мыши",
+        "коврик для мыши rgb",
+        "коврик logitech игровой",
+        "коврик steelseries xl",
+        "коврик razer игровой",
+        "коврик для мыши скоростной",
+    ]
+    return _multi_parse(db, queries, Mousepad, _map_mousepad, required_fields=["surface_material"])
 
 
 def backfill_mice(db: Session) -> dict:

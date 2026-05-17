@@ -116,9 +116,27 @@ def test_map_keyboard_form_factor():
     result = _map_keyboard([{"name": "Форм-фактор", "value": "TKL"}])
     assert result["form_factor"] == "TKL"
 
+def test_map_keyboard_has_rgb():
+    result = _map_keyboard([{"name": "Подсветка", "value": "Да"}])
+    assert result["has_rgb"] is True
+
+def test_map_keyboard_layout():
+    result = _map_keyboard([{"name": "Раскладка", "value": "RU/EN"}])
+    assert result["layout"] == "RU/EN"
+
+def test_map_keyboard_key_count():
+    result = _map_keyboard([{"name": "Количество клавиш", "value": "104"}])
+    assert result["key_count"] == 104
+
+def test_map_keyboard_color():
+    result = _map_keyboard([{"name": "Цвет", "value": "Черный"}])
+    assert result["color"] == "Черный"
+
 def test_map_keyboard_empty():
     result = _map_keyboard([])
-    assert all(v is None for v in result.values())
+    for k in ("switches", "form_factor", "layout", "color"):
+        assert result[k] is None
+    assert result["has_rgb"] is False
 
 
 # ── Маппер монитора ───────────────────────────────────────────────────────────
@@ -139,6 +157,26 @@ def test_map_monitor_resolution():
     result = _map_monitor([{"name": "Разрешение экрана", "value": "1920x1080"}])
     assert result["resolution"] == "1920x1080"
 
+def test_map_monitor_response_time():
+    result = _map_monitor([{"name": "Время отклика", "value": "1 мс"}])
+    assert result["response_time_ms"] == 1.0
+
+def test_map_monitor_brightness():
+    result = _map_monitor([{"name": "Яркость", "value": "400 кд/м²"}])
+    assert result["brightness_nits"] == 400
+
+def test_map_monitor_hdr():
+    result = _map_monitor([{"name": "HDR", "value": "Да"}])
+    assert result["hdr"] is True
+
+def test_map_monitor_color():
+    result = _map_monitor([{"name": "Цвет", "value": "Черный"}])
+    assert result["color"] == "Черный"
+
+def test_map_monitor_hdr_defaults_false():
+    result = _map_monitor([])
+    assert result["hdr"] is False
+
 
 # ── Маппер наушников ──────────────────────────────────────────────────────────
 
@@ -154,6 +192,41 @@ def test_map_headphones_no_mic_defaults_false():
     result = _map_headphones([])
     assert result["has_microphone"] is False
 
+def test_map_headphones_connection_wireless():
+    result = _map_headphones([{"name": "Подключение", "value": "Беспроводное"}])
+    assert result["connection_types"] == "Беспроводное"
+
+def test_map_headphones_connection_bt():
+    result = _map_headphones([{"name": "Тип беспроводной связи", "value": "Bluetooth, Радиоканал"}])
+    assert result["connection_types"] == "Bluetooth, Радиоканал"
+
+def test_map_headphones_construction():
+    result = _map_headphones([{"name": "Конструкция наушников", "value": "Полноразмерные"}])
+    assert result["construction_type"] == "Полноразмерные"
+
+def test_map_headphones_impedance():
+    result = _map_headphones([{"name": "Импеданс, Ом", "value": "45 Ом"}])
+    assert result["impedance_ohm"] == 45
+
+def test_map_headphones_frequency_response_combined():
+    result = _map_headphones([
+        {"name": "Мин. частота, Гц", "value": "20"},
+        {"name": "Макс. частота, Гц", "value": "20000"},
+    ])
+    assert result["frequency_response"] == "20-20000"
+
+def test_map_headphones_color():
+    result = _map_headphones([{"name": "Цвет", "value": "Черный"}])
+    assert result["color"] == "Черный"
+
+def test_map_headphones_has_rgb():
+    result = _map_headphones([{"name": "Подсветка", "value": "Да"}])
+    assert result["has_rgb"] is True
+
+def test_map_headphones_no_rgb_defaults_false():
+    result = _map_headphones([])
+    assert result["has_rgb"] is False
+
 
 # ── Маппер микрофона ──────────────────────────────────────────────────────────
 
@@ -164,6 +237,18 @@ def test_map_microphone_type():
 def test_map_microphone_connection():
     result = _map_microphone([{"name": "Тип подключения", "value": "USB"}])
     assert result["connection_types"] == "USB"
+
+def test_map_microphone_sample_rate():
+    result = _map_microphone([{"name": "Частота дискретизации", "value": "48000 Гц"}])
+    assert result["sample_rate"] == "48000 Гц"
+
+def test_map_microphone_bit_depth():
+    result = _map_microphone([{"name": "Разрядность", "value": "24 бит"}])
+    assert result["bit_depth"] == "24 бит"
+
+def test_map_microphone_color():
+    result = _map_microphone([{"name": "Цвет", "value": "Черный"}])
+    assert result["color"] == "Черный"
 
 
 # ── Маппер коврика ────────────────────────────────────────────────────────────
@@ -179,6 +264,14 @@ def test_map_mousepad_hardness():
 def test_map_mousepad_no_rgb_defaults_false():
     result = _map_mousepad([])
     assert result["has_rgb"] is False
+
+def test_map_mousepad_color():
+    result = _map_mousepad([{"name": "Цвет", "value": "Черный"}])
+    assert result["color"] == "Черный"
+
+def test_map_mousepad_thickness():
+    result = _map_mousepad([{"name": "Толщина", "value": "3 мм"}])
+    assert result["thickness_mm"] == 3.0
 
 
 # ── _extract_products ────────────────────────────────────────────────────────

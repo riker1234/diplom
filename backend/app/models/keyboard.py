@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float
+from sqlalchemy import Column, Integer, String, Float, Boolean
 from app.database import Base
 from app.models import TimestampMixin
 
@@ -14,6 +14,10 @@ class Keyboard(Base, TimestampMixin):
     keycap_material = Column(String)
     keycap_manufacturing = Column(String)
     connection_types = Column(String)
+    has_rgb = Column(Boolean, default=False)
+    layout = Column(String)
+    key_count = Column(Integer)
+    color = Column(String)
     price = Column(Float)
     ozon_sku = Column(String, unique=True, nullable=True)
     ozon_url = Column(String, nullable=True)
