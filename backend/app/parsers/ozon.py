@@ -25,10 +25,65 @@ _HEADERS = {
 
 _BASE_URL = "https://www.ozon.ru/api/entrypoint-api.bx/page/json/v2"
 
+# ── Selenium session (lazy init, one driver per process) ──────────────────────
+
+_driver = None
+
+
+def _get_driver():
+    global _driver
+    if _driver is not None:
+        try:
+            _ = _driver.current_url
+            return _driver
+        except Exception:
+            _driver = None
+
+    from selenium import webdriver
+    from selenium.webdriver.chrome.service import Service
+    from selenium.webdriver.chrome.options import Options
+    from selenium_stealth import stealth
+    from webdriver_manager.chrome import ChromeDriverManager
+
+    options = Options()
+    options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option("useAutomationExtension", False)
+    driver = webdriver.Chrome(
+        service=Service(ChromeDriverManager().install()),
+        options=options,
+    )
+    stealth(driver, languages=["ru-RU", "ru"], vendor="Google Inc.",
+            platform="Win32", webgl_vendor="Intel Inc.",
+            renderer="Intel Iris OpenGL Engine", fix_hairline=True)
+    driver.set_script_timeout(30)
+    driver.get("https://www.ozon.ru/")
+    time.sleep(4)
+    _driver = driver
+    return _driver
+
+
+def _browser_get(relative_url: str) -> dict | None:
+    """Выполняет fetch() из контекста браузера и возвращает JSON или None."""
+    driver = _get_driver()
+    escaped = relative_url.replace("'", "\\'")
+    result = driver.execute_async_script(f"""
+        var callback = arguments[arguments.length - 1];
+        fetch('{escaped}')
+            .then(r => r.json())
+            .then(data => callback(data))
+            .catch(e => callback({{error: e.toString()}}))
+    """)
+    if isinstance(result, dict) and "error" not in result:
+        return result
+    return None
+
 _MOUSE_KEYS = {
-    "weight":           {"вес", "вес товара", "вес с упаковкой", "вес устройства"},
-    "connection_types": {"тип подключения", "интерфейс подключения", "интерфейс"},
-    "sensor":           {"тип сенсора", "сенсор", "тип датчика"},
+    "weight":           {"вес", "вес товара", "вес с упаковкой", "вес устройства", "масса"},
+    "connection_types": {"тип соединения", "тип подключения", "интерфейс подключения"},
+    "sensor":           {"тип датчика", "модель сенсора", "тип сенсора", "сенсор"},
     "switches":         {"тип переключателей", "переключатели", "микровыключатели"},
 }
 
@@ -166,31 +221,46 @@ def _extract_products(widget_states: dict) -> list[dict]:
 
 
 def _parse_chars_from_widget_states(widget_states: dict) -> list[dict]:
+    # Prefer the widget with the most characteristics (full list)
+    best: list[dict] = []
     for key, value in widget_states.items():
-        if any(x in key for x in ("webCharacteristics", "webDetailSKU", "characteristics")):
-            try:
-                data = json.loads(value)
-                flat: list[dict] = []
-                for group in data.get("characteristics", []):
-                    for char in group.get("short_characteristics", []):
-                        name = char.get("name", "")
-                        vals = char.get("values", [])
-                        text = "; ".join(v.get("text", "") for v in vals)
+        if "webCharacteristics" not in key and "webShortCharacteristics" not in key:
+            continue
+        try:
+            data = json.loads(value) if isinstance(value, str) else value
+            flat: list[dict] = []
+            for group in data.get("characteristics", []):
+                # features page: characteristics[0].short[] with {name, values[]}
+                for item in group.get("short", []):
+                    name = item.get("name", "")
+                    vals = item.get("values", [])
+                    text = "; ".join(v.get("text", "") for v in vals)
+                    if name and text:
                         flat.append({"name": name, "value": text})
-                if flat:
-                    return flat
-            except Exception:
-                continue
-    return []
+                # product page: characteristics[] with title.textRs + values[]
+                title_rs = group.get("title", {}).get("textRs", [])
+                name = title_rs[0].get("content", "") if title_rs else ""
+                vals = group.get("values", [])
+                text = "; ".join(v.get("text", "") for v in vals)
+                if name and text:
+                    flat.append({"name": name, "value": text})
+            if len(flat) > len(best):
+                best = flat
+        except Exception:
+            continue
+    return best
 
 
 def _search_ozon(query: str, limit: int = 50) -> list[dict]:
-    url = f"/search/?text={quote(query)}&layout_container=categorySearchMegapagination&layout_page_index=1"
+    api_url = (
+        f"/api/entrypoint-api.bx/page/json/v2"
+        f"?url=/search/?text={quote(query)}"
+        f"&layout_container=categorySearchMegapagination&layout_page_index=1"
+    )
     try:
-        resp = requests.get(_BASE_URL, params={"url": url}, headers=_HEADERS, timeout=30)
-        if resp.status_code != 200:
+        data = _browser_get(api_url)
+        if not data:
             return []
-        data = resp.json()
         products = _extract_products(data.get("widgetStates", {}))
         return products[:limit]
     except Exception:
@@ -207,20 +277,16 @@ def _fetch_details(
         if not product_url:
             continue
         try:
-            resp = requests.get(
-                _BASE_URL,
-                params={"url": product_url},
-                headers=_HEADERS,
-                timeout=15,
-            )
-            if resp.status_code == 200:
-                data = resp.json()
+            features_path = product_url.rstrip("/") + "/features/"
+            api_url = f"/api/entrypoint-api.bx/page/json/v2?url={features_path}"
+            data = _browser_get(api_url)
+            if data:
                 chars = _parse_chars_from_widget_states(data.get("widgetStates", {}))
                 if chars:
                     result[pid] = chars
         except Exception:
             pass
-        time.sleep(random.uniform(0.5, 1.0))
+        time.sleep(random.uniform(0.3, 0.7))
     return result
 
 
@@ -229,42 +295,71 @@ def _fetch_all(query: str, limit: int = 50) -> tuple[list[dict], dict[int, list[
     if not products:
         return [], {}
 
-    url_map: dict[int, str] = {}
+    url_map: dict = {}
     for p in products:
         pid = p.get("id")
-        url = p.get("urlForProduct") or p.get("action", {}).get("link", "")
+        url = _get_url(p)
         if pid and url:
-            url_map[pid] = url
+            url_map[str(pid)] = url
 
     details = _fetch_details(list(url_map.keys()), url_map)
     return products, details
 
 
-def _get_price(product: dict) -> float:
-    for key in ("finalPrice", "price", "cardPrice"):
-        val = product.get(key)
-        if val is not None:
-            try:
-                return float(str(val).replace(" ", "").replace(" ", "").replace(",", "."))
-            except ValueError:
-                continue
+
+def _get_name(product: dict) -> str:
     for state in product.get("mainState", []):
-        atom = state.get("atom", {})
-        price_info = atom.get("price", {})
-        if price_info:
-            raw = price_info.get("price", "") or price_info.get("originalPrice", "")
-            m = re.search(r"[\d]+[.,]?[\d]*", str(raw).replace(" ", ""))
-            if m:
-                return float(m.group().replace(",", "."))
+        if state.get("type") == "textAtom":
+            atom = state.get("textAtom", {})
+            test_id = atom.get("testInfo", {}).get("automatizationId", "")
+            if "tile-name" in test_id or not test_id:
+                text = atom.get("text", "")
+                if text:
+                    return text
+    return ""
+
+
+def _get_brand(product: dict) -> str:
+    for state in product.get("mainState", []):
+        if state.get("type") == "labelListV2":
+            items = state.get("labelListV2", {}).get("items", [])
+            for item in items:
+                if item.get("type") == "text":
+                    text = item.get("text", {}).get("text", "")
+                    if text:
+                        return text
+    return ""
+
+
+def _get_price(product: dict) -> float:
+    for state in product.get("mainState", []):
+        if state.get("type") == "priceV2":
+            price_list = state.get("priceV2", {}).get("price", [])
+            for p in price_list:
+                if p.get("textStyle") == "PRICE":
+                    raw = re.sub(r"[^\d]", "", p.get("text", ""))
+                    if raw:
+                        try:
+                            return float(raw)
+                        except ValueError:
+                            pass
     return 0.0
 
 
 def _get_image(product: dict) -> str | None:
-    images = product.get("images", [])
-    if images:
-        return images[0] if isinstance(images[0], str) else images[0].get("url")
-    cover = product.get("coverImage")
-    return cover if isinstance(cover, str) else None
+    tile = product.get("tileImage", {})
+    items = tile.get("items", []) if isinstance(tile, dict) else []
+    for item in items:
+        if item.get("type") == "image":
+            link = item.get("image", {}).get("link", "")
+            if link:
+                return link
+    return None
+
+
+def _get_url(product: dict) -> str:
+    link = product.get("action", {}).get("link", "")
+    return link.split("?")[0]
 
 
 def _run_parse(db: Session, query: str, model_class, char_mapper) -> dict:
@@ -283,14 +378,14 @@ def _run_parse(db: Session, query: str, model_class, char_mapper) -> dict:
             if not pid:
                 continue
             ozon_sku = str(pid)
-            name = product.get("name", "")
-            brand = product.get("brand", "")
+            name = _get_name(product)
+            brand = _get_brand(product)
             price = _get_price(product)
             image_url = _get_image(product)
-            product_url = product.get("urlForProduct") or product.get("action", {}).get("link", "")
+            product_url = _get_url(product)
             ozon_url = f"https://www.ozon.ru{product_url}" if product_url.startswith("/") else product_url
 
-            chars = char_mapper(details.get(pid, []))
+            chars = char_mapper(details.get(str(pid), []))
 
             existing = db.query(model_class).filter(model_class.ozon_sku == ozon_sku).first()
             if existing:

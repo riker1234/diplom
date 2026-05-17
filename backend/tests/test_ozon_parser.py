@@ -174,35 +174,46 @@ def test_extract_products_empty_widget_states():
 # ── _fetch_details ────────────────────────────────────────────────────────────
 
 _FAKE_CHARS_WIDGET = {
-    "webCharacteristics-456": '{"characteristics": [{"short_characteristics": [{"name": "Тип сенсора", "values": [{"text": "PixArt 3395"}]}, {"name": "Тип подключения", "values": [{"text": "USB"}]}]}]}'
+    "webShortCharacteristics-456-default-1": '{"characteristics": [{"title": {"textRs": [{"content": "Тип сенсора"}]}, "values": [{"text": "PixArt 3395"}]}, {"title": {"textRs": [{"content": "Тип подключения"}]}, "values": [{"text": "USB"}]}]}'
 }
 
 def test_fetch_details_parses_characteristics():
-    with patch("app.parsers.ozon.requests.get") as mock_get:
-        mock_get.return_value.status_code = 200
-        mock_get.return_value.json.return_value = {"widgetStates": _FAKE_CHARS_WIDGET}
+    with patch("app.parsers.ozon._browser_get") as mock_get:
+        mock_get.return_value = {"widgetStates": _FAKE_CHARS_WIDGET}
         result = _fetch_details([12345678], {12345678: "/product/test-12345678/"})
     assert 12345678 in result
     assert isinstance(result[12345678], list)
     assert len(result[12345678]) == 2
 
 def test_fetch_details_empty_on_http_error():
-    with patch("app.parsers.ozon.requests.get") as mock_get:
-        mock_get.return_value.status_code = 429
+    with patch("app.parsers.ozon._browser_get") as mock_get:
+        mock_get.return_value = None
         result = _fetch_details([12345678], {12345678: "/product/test-12345678/"})
     assert result == {}
 
 
 # ── parse_mice (интеграция с БД) ──────────────────────────────────────────────
 
+def _make_product(pid: str, name: str, brand: str, price_str: str, url: str, image: str = "") -> dict:
+    return {
+        "id": pid,
+        "action": {"link": url},
+        "mainState": [
+            {"type": "priceV2", "priceV2": {"price": [{"text": price_str, "textStyle": "PRICE"}]}},
+            {"type": "textAtom", "textAtom": {"text": name, "testInfo": {"automatizationId": "tile-name"}}},
+            {"type": "labelListV2", "labelListV2": {"items": [{"type": "text", "text": {"text": brand}}]}},
+        ],
+        "tileImage": {"items": [{"type": "image", "image": {"link": image}}]} if image else {},
+    }
+
+
 _FAKE_PRODUCTS = [
-    {"id": 12345678, "name": "Игровая мышь Test", "brand": "TestBrand",
-     "finalPrice": "1990", "images": ["https://cdn.ozon.ru/test.jpg"],
-     "urlForProduct": "/product/test-12345678/"}
+    _make_product("12345678", "Игровая мышь Test", "TestBrand", "1 990 ₽", "/product/test-12345678/",
+                  "https://cdn.ozon.ru/test.jpg")
 ]
 
 _FAKE_DETAILS = {
-    12345678: [
+    "12345678": [
         {"name": "Тип сенсора", "value": "PixArt 3395"},
         {"name": "Тип подключения", "value": "USB"},
         {"name": "Вес", "value": "70 г"},
@@ -227,10 +238,7 @@ def test_parse_mice_updates_existing(db):
     existing = Mouse(name="Old", price=500.0, ozon_sku="99999999")
     db.add(existing)
     db.commit()
-    updated_products = [
-        {"id": 99999999, "name": "New", "brand": "B", "finalPrice": "2500",
-         "images": [], "urlForProduct": "/product/new-99999999/"}
-    ]
+    updated_products = [_make_product("99999999", "New", "B", "2 500 ₽", "/product/new-99999999/")]
     with patch("app.parsers.ozon._fetch_all", return_value=(updated_products, {})):
         result = parse_mice(db)
     assert result["updated"] == 1
