@@ -2,11 +2,17 @@ from sqlalchemy.orm import Session
 from app.models.mouse import Mouse
 from app.models.keyboard import Keyboard
 from app.models.monitor import Monitor
+from app.models.headphones import Headphones
+from app.models.microphone import Microphone
+from app.models.mousepad import Mousepad
 
 _MODEL_MAP = {
     "mouse": Mouse,
     "keyboard": Keyboard,
     "monitor": Monitor,
+    "headphones": Headphones,
+    "microphone": Microphone,
+    "mousepad": Mousepad,
 }
 
 # Ключевые слова в названии переключателей для каждого типа
@@ -71,6 +77,42 @@ def _build_query(category: str, answers: dict, db: Session, model):
         elif size == "large":
             query = query.filter(model.diagonal_inch >= 27)
 
+    elif category == "headphones":
+        has_mic = answers.get("has_microphone")
+        if has_mic == "yes":
+            query = query.filter(model.has_microphone == True)
+        elif has_mic == "no":
+            query = query.filter(model.has_microphone == False)
+
+        connection = answers.get("connection")
+        if connection == "wired":
+            query = query.filter(
+                model.connection_types.isnot(None),
+                ~model.connection_types.ilike("%bluetooth%"),
+            )
+        elif connection == "wireless":
+            query = query.filter(model.connection_types.ilike("%bluetooth%"))
+
+    elif category == "microphone":
+        connection = answers.get("connection")
+        if connection == "usb":
+            query = query.filter(model.connection_types.ilike("%usb%"))
+        elif connection == "xlr":
+            query = query.filter(model.connection_types.ilike("%xlr%"))
+
+    elif category == "mousepad":
+        hardness = answers.get("hardness")
+        if hardness == "soft":
+            query = query.filter(model.hardness.ilike("%мягк%"))
+        elif hardness == "hard":
+            query = query.filter(model.hardness.ilike("%жёстк%"))
+
+        rgb = answers.get("rgb")
+        if rgb == "yes":
+            query = query.filter(model.has_rgb == True)
+        elif rgb == "no":
+            query = query.filter(model.has_rgb == False)
+
     return query
 
 
@@ -105,5 +147,23 @@ def _score(product, category: str, answers: dict) -> int:
             score += 3  # высокая частота обновления важна для игр
         elif use_case == "work" and product.matrix_type == "IPS":
             score += 2  # IPS лучше для цветопередачи при работе
+
+    elif category == "headphones":
+        if use_case == "gaming" and product.has_microphone:
+            score += 2  # гарнитура с микрофоном удобна для игр
+        if use_case == "music" and not product.has_microphone:
+            score += 1  # без микрофона — чище звук для музыки
+        if use_case == "calls" and product.has_microphone:
+            score += 3  # микрофон обязателен для звонков
+
+    elif category == "microphone":
+        if use_case == "streaming" and product.mic_type and "конденсаторный" in product.mic_type.lower():
+            score += 2  # конденсаторный лучше для стриминга
+        if use_case == "calls" and product.connection_types and "usb" in product.connection_types.lower():
+            score += 2  # USB удобен для звонков без дополнительного оборудования
+
+    elif category == "mousepad":
+        if product.has_rgb:
+            score += 1  # подсветка — приятный бонус
 
     return score

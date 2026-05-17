@@ -96,6 +96,112 @@ QUESTIONS: dict[str, list[dict]] = {
             "placeholder": "Например: 20000",
         },
     ],
+    "headphones": [
+        {
+            "id": "use_case",
+            "text": "Для чего нужны наушники?",
+            "type": "choice",
+            "options": [
+                {"value": "gaming", "label": "Для игр"},
+                {"value": "music", "label": "Для музыки"},
+                {"value": "calls", "label": "Для звонков и работы"},
+                {"value": "any", "label": "Универсальные"},
+            ],
+        },
+        {
+            "id": "has_microphone",
+            "text": "Нужен встроенный микрофон?",
+            "type": "choice",
+            "options": [
+                {"value": "yes", "label": "Да"},
+                {"value": "no", "label": "Нет"},
+                {"value": "any", "label": "Не важно"},
+            ],
+        },
+        {
+            "id": "connection",
+            "text": "Тип подключения?",
+            "type": "choice",
+            "options": [
+                {"value": "wired", "label": "Проводные"},
+                {"value": "wireless", "label": "Беспроводные (Bluetooth)"},
+                {"value": "any", "label": "Не важно"},
+            ],
+        },
+        {
+            "id": "budget",
+            "text": "Максимальный бюджет (₽)?",
+            "type": "number",
+            "placeholder": "Например: 5000",
+        },
+    ],
+    "microphone": [
+        {
+            "id": "use_case",
+            "text": "Для чего нужен микрофон?",
+            "type": "choice",
+            "options": [
+                {"value": "streaming", "label": "Стриминг и подкасты"},
+                {"value": "calls", "label": "Звонки и конференции"},
+                {"value": "recording", "label": "Запись голоса и музыки"},
+                {"value": "any", "label": "Универсальный"},
+            ],
+        },
+        {
+            "id": "connection",
+            "text": "Тип подключения?",
+            "type": "choice",
+            "options": [
+                {"value": "usb", "label": "USB (plug & play)"},
+                {"value": "xlr", "label": "XLR (профессиональный)"},
+                {"value": "any", "label": "Не важно"},
+            ],
+        },
+        {
+            "id": "budget",
+            "text": "Максимальный бюджет (₽)?",
+            "type": "number",
+            "placeholder": "Например: 8000",
+        },
+    ],
+    "mousepad": [
+        {
+            "id": "size",
+            "text": "Нужный размер коврика?",
+            "type": "choice",
+            "options": [
+                {"value": "small", "label": "Маленький (до 350 мм)"},
+                {"value": "large", "label": "Большой (350 мм и больше)"},
+                {"value": "any", "label": "Не важно"},
+            ],
+        },
+        {
+            "id": "hardness",
+            "text": "Жёсткость поверхности?",
+            "type": "choice",
+            "options": [
+                {"value": "soft", "label": "Мягкий (ткань)"},
+                {"value": "hard", "label": "Жёсткий (пластик/стекло)"},
+                {"value": "any", "label": "Не важно"},
+            ],
+        },
+        {
+            "id": "rgb",
+            "text": "Нужна RGB-подсветка?",
+            "type": "choice",
+            "options": [
+                {"value": "yes", "label": "Да"},
+                {"value": "no", "label": "Нет"},
+                {"value": "any", "label": "Не важно"},
+            ],
+        },
+        {
+            "id": "budget",
+            "text": "Максимальный бюджет (₽)?",
+            "type": "number",
+            "placeholder": "Например: 2000",
+        },
+    ],
 }
 
 SUPPORTED_CATEGORIES: set[str] = set(QUESTIONS.keys())
