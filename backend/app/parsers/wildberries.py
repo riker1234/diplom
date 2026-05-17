@@ -254,6 +254,63 @@ def _search_wb(query: str, limit: int = 100) -> list[dict]:
     return _fetch_wb_products(query, limit)
 
 
+# ── Единая функция: продукты + характеристики в одной сессии браузера ─────────
+
+def _fetch_all(query: str, limit: int = 100) -> tuple[list[dict], dict[int, list[dict]]]:
+    """
+    Fetches product list and their characteristics in a single Selenium session.
+    Details are fetched via execute_async_script from the wildberries.ru context,
+    which satisfies the CORS policy of card.wb.ru.
+    """
+    driver = _make_driver()
+    driver.set_script_timeout(30)
+    try:
+        driver.get("https://www.wildberries.ru/")
+        time.sleep(5)
+
+        search_url = _build_search_url(query)
+        result = driver.execute_async_script(f"""
+            var callback = arguments[arguments.length - 1];
+            fetch('{search_url}')
+                .then(r => r.json())
+                .then(data => callback(data))
+                .catch(e => callback({{error: e.toString()}}))
+        """)
+        if not isinstance(result, dict) or "error" in result:
+            return [], {}
+        products = result.get("products", [])[:limit]
+        if not products:
+            return [], {}
+
+        details: dict[int, list[dict]] = {}
+        ids = [p["id"] for p in products]
+        for i in range(0, len(ids), 20):
+            batch = ids[i:i + 20]
+            nm = ";".join(str(pid) for pid in batch)
+            detail_url = (
+                f"https://card.wb.ru/cards/v1/detail"
+                f"?appType=1&curr=rub&dest=-1257786&nm={nm}"
+            )
+            try:
+                detail_data = driver.execute_async_script(f"""
+                    var callback = arguments[arguments.length - 1];
+                    fetch('{detail_url}')
+                        .then(r => r.json())
+                        .then(data => callback(data))
+                        .catch(e => callback({{error: e.toString()}}))
+                """)
+                if isinstance(detail_data, dict) and "data" in detail_data:
+                    for p in detail_data["data"].get("products", []):
+                        details[p["id"]] = p.get("options", [])
+            except Exception:
+                pass
+            time.sleep(0.3)
+
+        return products, details
+    finally:
+        driver.quit()
+
+
 # ── Общая функция парсинга категории ──────────────────────────────────────────
 
 def _run_parse(db: Session, query: str, model_class, char_mapper) -> dict:
@@ -261,14 +318,12 @@ def _run_parse(db: Session, query: str, model_class, char_mapper) -> dict:
 
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            products = executor.submit(_fetch_wb_products, query).result(timeout=120)
+            products, details = executor.submit(_fetch_all, query).result(timeout=180)
     except Exception as e:
         return {"added": 0, "updated": 0, "failed": 0, "error": str(e)}
 
     if not products:
         return {"added": 0, "updated": 0, "failed": 0}
-
-    details = _fetch_details([p["id"] for p in products])
 
     for product in products:
         try:
