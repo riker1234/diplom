@@ -21,47 +21,47 @@ from app.models.mousepad import Mousepad
 # ── Ключи характеристик WB (русские названия полей из options) ─────────────────
 
 _MOUSE_KEYS = {
-    "weight":           {"вес", "масса"},
-    "connection_types": {"тип подключения", "интерфейс"},
-    "sensor":           {"сенсор", "тип сенсора"},
-    "switches":         {"переключатели", "микровыключатели"},
+    "weight":           {"вес с упаковкой (кг)", "вес мыши", "вес", "масса"},
+    "connection_types": {"тип подключения мыши", "тип подключения", "интерфейс"},
+    "sensor":           {"тип датчика мыши", "сенсор", "тип сенсора"},
+    "switches":         {"переключатели кнопок мыши", "переключатели", "микровыключатели"},
 }
 
 _KEYBOARD_KEYS = {
-    "switches":             {"переключатели", "тип переключателей"},
-    "form_factor":          {"форм-фактор", "конструкция"},
-    "board_material":       {"материал корпуса"},
-    "keycap_material":      {"материал кейкапов", "материал колпачков"},
-    "keycap_manufacturing": {"способ нанесения символов", "нанесение символов"},
-    "connection_types":     {"тип подключения", "интерфейс"},
+    "switches":             {"тип переключателей клавиатуры", "переключатели", "тип переключателей"},
+    "form_factor":          {"форм-фактор клавиатуры", "форм-фактор", "конструкция"},
+    "board_material":       {"материал корпуса клавиатуры", "материал корпуса"},
+    "keycap_material":      {"материал клавиш", "материал кейкапов", "материал колпачков"},
+    "keycap_manufacturing": {"способ нанесения символов клавиатуры", "способ нанесения символов", "нанесение символов"},
+    "connection_types":     {"тип подключения клавиатуры", "тип подключения", "интерфейс"},
 }
 
 _MONITOR_KEYS = {
-    "diagonal_inch":   {"диагональ", "размер экрана"},
-    "resolution":      {"разрешение"},
-    "refresh_rate_hz": {"частота обновления", "максимальная частота обновления"},
+    "diagonal_inch":   {"диагональ монитора", "диагональ", "размер экрана"},
+    "resolution":      {"разрешение экрана", "разрешение"},
+    "refresh_rate_hz": {"частота обновления экрана", "частота обновления", "максимальная частота обновления"},
     "matrix_type":     {"тип матрицы", "тип панели"},
 }
 
 _HEADPHONES_KEYS = {
-    "construction_type":  {"конструкция", "тип конструкции"},
-    "connection_types":   {"тип подключения", "интерфейс"},
+    "construction_type":  {"конструкция наушников", "конструкция", "тип конструкции"},
+    "connection_types":   {"тип подключения наушников", "тип подключения", "интерфейс"},
     "has_microphone":     {"микрофон", "встроенный микрофон"},
     "noise_cancellation": {"шумоподавление", "активное шумоподавление"},
 }
 
 _MICROPHONE_KEYS = {
     "mic_type":         {"тип микрофона", "тип капсюля"},
-    "directionality":   {"направленность", "полярная диаграмма"},
-    "connection_types": {"тип подключения", "интерфейс"},
+    "directionality":   {"направленность микрофона", "направленность", "полярная диаграмма"},
+    "connection_types": {"тип подключения микрофона", "тип подключения", "интерфейс"},
     "frequency_range":  {"диапазон частот", "частотный диапазон"},
 }
 
 _MOUSEPAD_KEYS = {
-    "size":             {"размер", "габариты"},
-    "surface_material": {"материал поверхности", "материал"},
-    "hardness":         {"жёсткость", "тип поверхности"},
-    "has_rgb":          {"подсветка", "rgb-подсветка"},
+    "size":             {"размер коврика", "размер", "габариты"},
+    "surface_material": {"материал поверхности коврика", "материал поверхности", "материал"},
+    "hardness":         {"жёсткость коврика", "жёсткость", "тип поверхности"},
+    "has_rgb":          {"подсветка коврика", "подсветка", "rgb-подсветка"},
 }
 
 # ── Вспомогательные парсеры значений ──────────────────────────────────────────
@@ -99,8 +99,14 @@ def _map_options(options: list[dict], keys_map: dict) -> dict:
 def _map_mouse(options: list[dict]) -> dict:
     raw = _map_options(options, _MOUSE_KEYS)
     weight_str = raw.get("weight")
+    weight_g = None
+    if weight_str:
+        val = _parse_float(weight_str)
+        if val is not None:
+            # WB отдаёт вес в кг (напр. "0.25 кг") — конвертируем в граммы
+            weight_g = round(val * 1000) if "кг" in weight_str.lower() else val
     return {
-        "weight_g":         _parse_float(weight_str) if weight_str else None,
+        "weight_g":         weight_g,
         "connection_types": raw.get("connection_types"),
         "sensor":           raw.get("sensor"),
         "switches":         raw.get("switches"),
@@ -318,7 +324,10 @@ def _fetch_all(query: str, limit: int = 50) -> tuple[list[dict], dict[int, list[
     details = _fetch_details([p["id"] for p in products])
     if products:
         pid0 = products[0]["id"]
-        print(f"[WB-DEBUG] pid={pid0} opts={len(details.get(pid0, []))} sample={details.get(pid0, [])[:2]}", flush=True)
+        all_opts = details.get(pid0, [])
+        print(f"[WB-DEBUG] pid={pid0} opts={len(all_opts)}", flush=True)
+        for o in all_opts:
+            print(f"[WB-OPT] {o.get('name')!r:40s} -> {o.get('value')!r}", flush=True)
 
     return products, details
 
