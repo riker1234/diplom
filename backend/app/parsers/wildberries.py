@@ -283,30 +283,36 @@ def _fetch_all(query: str, limit: int = 100) -> tuple[list[dict], dict[int, list
         if not products:
             return [], {}
 
-        details: dict[int, list[dict]] = {}
-        ids = [p["id"] for p in products]
-        for i in range(0, len(ids), 20):
-            batch = ids[i:i + 20]
-            nm = ";".join(str(pid) for pid in batch)
-            detail_url = (
-                f"https://card.wb.ru/cards/v1/detail"
-                f"?appType=1&curr=rub&dest=-1257786&nm={nm}"
-            )
-            try:
-                driver.get(detail_url)
-                time.sleep(1)
-                raw = driver.execute_script("return document.body.innerText")
-                detail_data = json.loads(raw)
-                if isinstance(detail_data, dict) and "data" in detail_data:
-                    for p in detail_data["data"].get("products", []):
-                        details[p["id"]] = p.get("options", [])
-            except Exception:
-                pass
-            time.sleep(0.3)
+        # Извлекаем куки WB-сессии для requests
+        wb_cookies = {c["name"]: c["value"] for c in driver.get_cookies()}
 
-        return products, details
+        return products, wb_cookies
     finally:
         driver.quit()
+
+
+def _fetch_details_with_cookies(
+    product_ids: list[int], cookies: dict
+) -> dict[int, list[dict]]:
+    """Запрашивает характеристики через Python requests с куками WB-сессии."""
+    result: dict[int, list[dict]] = {}
+    for i in range(0, len(product_ids), 20):
+        batch = product_ids[i:i + 20]
+        nm = ";".join(str(pid) for pid in batch)
+        url = (
+            f"https://card.wb.ru/cards/v1/detail"
+            f"?appType=1&curr=rub&dest=-1257786&nm={nm}"
+        )
+        try:
+            resp = requests.get(url, headers=_DETAIL_HEADERS, cookies=cookies, timeout=15)
+            print(f"[WB-DEBUG] card.wb.ru batch {i//20}: status={resp.status_code} body={resp.text[:200]}", flush=True)
+            if resp.status_code == 200:
+                for p in resp.json().get("data", {}).get("products", []):
+                    result[p["id"]] = p.get("options", [])
+        except Exception as e:
+            print(f"[WB-DEBUG] batch {i//20} error: {e}", flush=True)
+        time.sleep(0.3)
+    return result
 
 
 # ── Общая функция парсинга категории ──────────────────────────────────────────
@@ -316,9 +322,11 @@ def _run_parse(db: Session, query: str, model_class, char_mapper) -> dict:
 
     try:
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            products, details = executor.submit(_fetch_all, query).result(timeout=180)
+            products, wb_cookies = executor.submit(_fetch_all, query).result(timeout=180)
     except Exception as e:
         return {"added": 0, "updated": 0, "failed": 0, "error": str(e)}
+
+    details = _fetch_details_with_cookies([p["id"] for p in products], wb_cookies) if products else {}
 
     if not products:
         return {"added": 0, "updated": 0, "failed": 0}

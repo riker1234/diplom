@@ -240,8 +240,9 @@ _FAKE_DETAILS_DICT = {
 
 
 def test_parse_mice_adds_new_product(db):
-    with patch("app.parsers.wildberries._fetch_all", return_value=(_FAKE_PRODUCTS, _FAKE_DETAILS_DICT)):
-        result = parse_mice(db)
+    with patch("app.parsers.wildberries._fetch_all", return_value=(_FAKE_PRODUCTS, {})):
+        with patch("app.parsers.wildberries._fetch_details_with_cookies", return_value=_FAKE_DETAILS_DICT):
+            result = parse_mice(db)
     assert result["added"] == 1
     assert result["updated"] == 0
     assert result["failed"] == 0
@@ -260,7 +261,8 @@ def test_parse_mice_updates_existing_product(db):
         {"id": 99999999, "name": "New Name", "brand": "Brand", "sizes": [{"price": {"product": 250000}}]}
     ]
     with patch("app.parsers.wildberries._fetch_all", return_value=(updated_products, {})):
-        result = parse_mice(db)
+        with patch("app.parsers.wildberries._fetch_details_with_cookies", return_value={}):
+            result = parse_mice(db)
     assert result["updated"] == 1
     assert result["added"] == 0
     mouse = db.query(Mouse).filter(Mouse.wb_sku == "99999999").first()
