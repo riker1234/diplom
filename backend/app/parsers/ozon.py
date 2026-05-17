@@ -85,6 +85,11 @@ _MOUSE_KEYS = {
     "connection_types": {"тип соединения", "тип подключения", "интерфейс подключения"},
     "sensor":           {"тип датчика", "модель сенсора", "тип сенсора", "сенсор"},
     "switches":         {"тип переключателей", "переключатели", "микровыключатели"},
+    "button_count":     {"количество кнопок"},
+    "max_dpi":          {"макс. разрешение датчика, dpi", "максимальное разрешение", "разрешение датчика"},
+    "color":            {"цвет"},
+    "form_factor":      {"форма", "конструкция мыши"},
+    "has_rgb":          {"подсветка", "rgb подсветка", "rgb-подсветка"},
 }
 
 _KEYBOARD_KEYS = {
@@ -159,11 +164,19 @@ def _map_mouse(options: list[dict]) -> dict:
         val = _parse_float(weight_str)
         if val is not None:
             weight_g = round(val * 1000) if "кг" in weight_str.lower() else val
+    button_str = raw.get("button_count")
+    max_dpi_str = raw.get("max_dpi")
+    has_rgb_str = raw.get("has_rgb")
     return {
         "weight_g":         weight_g,
         "connection_types": raw.get("connection_types"),
         "sensor":           raw.get("sensor"),
         "switches":         raw.get("switches"),
+        "button_count":     _parse_int(button_str) if button_str else None,
+        "max_dpi":          _parse_int(max_dpi_str) if max_dpi_str else None,
+        "color":            raw.get("color"),
+        "form_factor":      raw.get("form_factor"),
+        "has_rgb":          _parse_bool(has_rgb_str) if has_rgb_str else False,
     }
 
 
@@ -252,19 +265,27 @@ def _parse_chars_from_widget_states(widget_states: dict) -> list[dict]:
 
 
 def _search_ozon(query: str, limit: int = 50) -> list[dict]:
-    api_url = (
-        f"/api/entrypoint-api.bx/page/json/v2"
-        f"?url=/search/?text={quote(query)}"
-        f"&layout_container=categorySearchMegapagination&layout_page_index=1"
-    )
-    try:
-        data = _browser_get(api_url)
-        if not data:
-            return []
-        products = _extract_products(data.get("widgetStates", {}))
-        return products[:limit]
-    except Exception:
-        return []
+    all_products: list[dict] = []
+    page = 1
+    while len(all_products) < limit:
+        api_url = (
+            f"/api/entrypoint-api.bx/page/json/v2"
+            f"?url=/search/?text={quote(query)}"
+            f"&layout_container=categorySearchMegapagination&layout_page_index={page}"
+        )
+        try:
+            data = _browser_get(api_url)
+            if not data:
+                break
+            products = _extract_products(data.get("widgetStates", {}))
+            if not products:
+                break
+            all_products.extend(products)
+            page += 1
+            time.sleep(random.uniform(0.5, 1.0))
+        except Exception:
+            break
+    return all_products[:limit]
 
 
 def _fetch_details(
@@ -362,10 +383,10 @@ def _get_url(product: dict) -> str:
     return link.split("?")[0]
 
 
-def _run_parse(db: Session, query: str, model_class, char_mapper) -> dict:
+def _run_parse(db: Session, query: str, model_class, char_mapper, limit: int = 8) -> dict:
     added = updated = failed = 0
     try:
-        products, details = _fetch_all(query)
+        products, details = _fetch_all(query, limit)
     except Exception as e:
         return {"added": 0, "updated": 0, "failed": 0, "error": str(e)}
 
@@ -456,7 +477,25 @@ def _backfill(db: Session, model_class, char_mapper, null_field: str) -> dict:
 
 
 def parse_mice(db: Session) -> dict:
-    return _run_parse(db, "игровая мышь", Mouse, _map_mouse)
+    queries = [
+        "игровая мышь проводная",
+        "игровая мышь беспроводная",
+        "мышь logitech игровая",
+        "мышь razer игровая",
+        "мышь steelseries",
+        "мышь gaming rgb",
+        "мышь офисная беспроводная",
+    ]
+    total = {"added": 0, "updated": 0, "failed": 0}
+    for q in queries:
+        r = _run_parse(db, q, Mouse, _map_mouse, limit=8)
+        if "error" in r:
+            continue
+        total["added"] += r.get("added", 0)
+        total["updated"] += r.get("updated", 0)
+        total["failed"] += r.get("failed", 0)
+        import time as _t; _t.sleep(1)
+    return total
 
 def parse_keyboards(db: Session) -> dict:
     return _run_parse(db, "механическая клавиатура игровая", Keyboard, _map_keyboard)

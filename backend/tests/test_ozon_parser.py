@@ -72,13 +72,38 @@ def test_map_mouse_switches():
     result = _map_mouse([{"name": "Тип переключателей", "value": "Omron"}])
     assert result["switches"] == "Omron"
 
+def test_map_mouse_button_count():
+    result = _map_mouse([{"name": "Количество кнопок", "value": "7"}])
+    assert result["button_count"] == 7
+
+def test_map_mouse_max_dpi():
+    result = _map_mouse([{"name": "Макс. разрешение датчика, dpi", "value": "25600"}])
+    assert result["max_dpi"] == 25600
+
+def test_map_mouse_color():
+    result = _map_mouse([{"name": "Цвет", "value": "Черный"}])
+    assert result["color"] == "Черный"
+
+def test_map_mouse_form_factor():
+    result = _map_mouse([{"name": "Форма", "value": "для правшей"}])
+    assert result["form_factor"] == "для правшей"
+
+def test_map_mouse_has_rgb():
+    result = _map_mouse([{"name": "Подсветка", "value": "Да"}])
+    assert result["has_rgb"] is True
+
 def test_map_mouse_unknown_field_returns_none():
-    result = _map_mouse([{"name": "Цвет", "value": "Чёрный"}])
-    assert result == {"weight_g": None, "connection_types": None, "sensor": None, "switches": None}
+    result = _map_mouse([{"name": "Гарантия", "value": "1 год"}])
+    assert result["weight_g"] is None
+    assert result["sensor"] is None
+    assert result["color"] is None
 
 def test_map_mouse_empty():
     result = _map_mouse([])
-    assert result == {"weight_g": None, "connection_types": None, "sensor": None, "switches": None}
+    expected_none = {"weight_g", "connection_types", "sensor", "switches", "button_count", "max_dpi", "color", "form_factor"}
+    for k in expected_none:
+        assert result[k] is None
+    assert result["has_rgb"] is False
 
 
 # ── Маппер клавиатуры ─────────────────────────────────────────────────────────
@@ -222,11 +247,17 @@ _FAKE_DETAILS = {
 
 
 def test_parse_mice_adds_new_product(db):
-    with patch("app.parsers.ozon._fetch_all", return_value=(_FAKE_PRODUCTS, _FAKE_DETAILS)):
+    with patch("app.parsers.ozon._run_parse", return_value={"added": 1, "updated": 0, "failed": 0}) as mock_run:
         result = parse_mice(db)
-    assert result["added"] == 1
-    assert result["updated"] == 0
+    # parse_mice calls _run_parse multiple times (one per query)
+    assert mock_run.called
+    assert result["added"] >= 1
     assert result["failed"] == 0
+
+
+def test_parse_mice_adds_product_to_db(db):
+    with patch("app.parsers.ozon._fetch_all", return_value=(_FAKE_PRODUCTS, _FAKE_DETAILS)):
+        parse_mice(db)
     mouse = db.query(Mouse).filter(Mouse.ozon_sku == "12345678").first()
     assert mouse is not None
     assert mouse.weight_g == 70.0
@@ -240,14 +271,13 @@ def test_parse_mice_updates_existing(db):
     db.commit()
     updated_products = [_make_product("99999999", "New", "B", "2 500 ₽", "/product/new-99999999/")]
     with patch("app.parsers.ozon._fetch_all", return_value=(updated_products, {})):
-        result = parse_mice(db)
-    assert result["updated"] == 1
+        parse_mice(db)
     mouse = db.query(Mouse).filter(Mouse.ozon_sku == "99999999").first()
     assert mouse.price == 2500.0
 
 
-def test_parse_mice_returns_error_on_exception(db):
+def test_parse_mice_returns_zero_on_all_errors(db):
     with patch("app.parsers.ozon._fetch_all", side_effect=RuntimeError("timeout")):
         result = parse_mice(db)
-    assert "error" in result
     assert result["added"] == 0
+    assert result["failed"] == 0

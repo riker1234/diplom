@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float
+from sqlalchemy import Column, Integer, String, Float, Boolean
 from app.database import Base
 from app.models import TimestampMixin
 
@@ -12,6 +12,11 @@ class Mouse(Base, TimestampMixin):
     switches = Column(String)
     weight_g = Column(Float)
     connection_types = Column(String)
+    button_count = Column(Integer)
+    max_dpi = Column(Integer)
+    color = Column(String)
+    form_factor = Column(String)
+    has_rgb = Column(Boolean, default=False)
     price = Column(Float)
     ozon_sku = Column(String, unique=True, nullable=True)
     ozon_url = Column(String, nullable=True)
