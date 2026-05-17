@@ -322,12 +322,6 @@ def _fetch_all(query: str, limit: int = 50) -> tuple[list[dict], dict[int, list[
         return [], {}
 
     details = _fetch_details([p["id"] for p in products])
-    if products:
-        pid0 = products[0]["id"]
-        all_opts = details.get(pid0, [])
-        print(f"[WB-DEBUG] pid={pid0} opts={len(all_opts)}", flush=True)
-        for o in all_opts:
-            print(f"[WB-OPT] {o.get('name')!r:40s} -> {o.get('value')!r}", flush=True)
 
     return products, details
 

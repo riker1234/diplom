@@ -57,9 +57,13 @@ def test_parse_bool_est():
 
 # ── Маппер мыши ───────────────────────────────────────────────────────────────
 
-def test_map_mouse_weight():
+def test_map_mouse_weight_grams():
     result = _map_mouse([{"name": "Вес", "value": "70 г"}])
     assert result["weight_g"] == 70.0
+
+def test_map_mouse_weight_kg():
+    result = _map_mouse([{"name": "Вес с упаковкой (кг)", "value": "0.25 кг"}])
+    assert result["weight_g"] == 250
 
 def test_map_mouse_connection_types():
     result = _map_mouse([{"name": "Тип подключения", "value": "USB"}])
