@@ -60,7 +60,7 @@ def _get_driver():
             renderer="Intel Iris OpenGL Engine", fix_hairline=True)
     driver.set_script_timeout(30)
     driver.get("https://www.ozon.ru/")
-    time.sleep(4)
+    time.sleep(10)
     _driver = driver
     return _driver
 

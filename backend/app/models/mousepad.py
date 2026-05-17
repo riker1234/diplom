@@ -17,4 +17,7 @@ class Mousepad(Base, TimestampMixin):
     price = Column(Float)
     ozon_sku = Column(String, unique=True, nullable=True)
     ozon_url = Column(String, nullable=True)
+    dns_sku = Column(String, unique=True, nullable=True)
+    dns_url = Column(String, nullable=True)
+    dns_price = Column(Float, nullable=True)
     image_url = Column(String, nullable=True)

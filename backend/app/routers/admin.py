@@ -8,6 +8,10 @@ from app.parsers.ozon import (
     backfill_mice, backfill_keyboards, backfill_monitors,
     backfill_headphones, backfill_microphones, backfill_mousepads,
 )
+from app.parsers.dns import (
+    parse_mice_dns, parse_keyboards_dns, parse_monitors_dns,
+    parse_headphones_dns, parse_microphones_dns, parse_mousepads_dns,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -45,6 +49,36 @@ def trigger_parse_microphones(db: Session = Depends(get_db)):
 @router.post("/parse/mousepads", dependencies=[Depends(_require_admin)])
 def trigger_parse_mousepads(db: Session = Depends(get_db)):
     return parse_mousepads(db)
+
+
+@router.post("/parse/mice/dns", dependencies=[Depends(_require_admin)])
+def trigger_parse_mice_dns(db: Session = Depends(get_db)):
+    return parse_mice_dns(db)
+
+
+@router.post("/parse/keyboards/dns", dependencies=[Depends(_require_admin)])
+def trigger_parse_keyboards_dns(db: Session = Depends(get_db)):
+    return parse_keyboards_dns(db)
+
+
+@router.post("/parse/monitors/dns", dependencies=[Depends(_require_admin)])
+def trigger_parse_monitors_dns(db: Session = Depends(get_db)):
+    return parse_monitors_dns(db)
+
+
+@router.post("/parse/headphones/dns", dependencies=[Depends(_require_admin)])
+def trigger_parse_headphones_dns(db: Session = Depends(get_db)):
+    return parse_headphones_dns(db)
+
+
+@router.post("/parse/microphones/dns", dependencies=[Depends(_require_admin)])
+def trigger_parse_microphones_dns(db: Session = Depends(get_db)):
+    return parse_microphones_dns(db)
+
+
+@router.post("/parse/mousepads/dns", dependencies=[Depends(_require_admin)])
+def trigger_parse_mousepads_dns(db: Session = Depends(get_db)):
+    return parse_mousepads_dns(db)
 
 
 @router.post("/backfill/mice", dependencies=[Depends(_require_admin)])
