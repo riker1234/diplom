@@ -135,15 +135,13 @@ _MONITOR_KEYS = {
 }
 
 _HEADPHONES_KEYS = {
-    "construction_type":  {"конструкция наушников", "конструкция", "тип конструкции"},
+    "construction_type":  {"конструкция наушников", "конструкция", "тип конструкции", "вид наушников"},
     "connection_types":   {"тип подключения наушников", "тип подключения", "интерфейс"},
-    "has_microphone":     {"микрофон", "встроенный микрофон"},
-    "noise_cancellation": {"шумоподавление", "активное шумоподавление"},
-    "freq_min":           {"минимальная частота", "мин. частота"},
-    "freq_max":           {"максимальная частота", "макс. частота"},
+    "extra_options":      {"доп. опции наушников", "особенности наушников"},
+    "freq_min":           {"минимальная частота", "мин. частота", "минимальная воспроизводимая частота"},
+    "freq_max":           {"максимальная частота", "макс. частота", "максимальная воспроизводимая частота"},
     "impedance_ohm":      {"импеданс", "сопротивление"},
     "color":              {"цвет товара", "цвет"},
-    "has_rgb":            {"подсветка", "rgb подсветка"},
 }
 
 _MICROPHONE_KEYS = {
@@ -157,12 +155,12 @@ _MICROPHONE_KEYS = {
 }
 
 _MOUSEPAD_KEYS = {
-    "size":             {"размер коврика", "размер", "габариты"},
-    "surface_material": {"материал поверхности коврика", "материал поверхности", "материал"},
-    "hardness":         {"жёсткость коврика", "жёсткость", "тип поверхности"},
+    "size":             {"размер коврика", "размер", "габариты", "размер коврика для мыши"},
+    "surface_material": {"материал поверхности коврика", "материал поверхности", "материал", "покрытие поверхности коврика"},
+    "hardness":         {"жёсткость коврика", "жёсткость", "тип поверхности", "тип покрытия коврика"},
     "has_rgb":          {"подсветка коврика", "подсветка", "rgb-подсветка"},
     "color":            {"цвет товара", "цвет"},
-    "thickness_mm":     {"толщина", "толщина (мм)"},
+    "thickness_mm":     {"толщина", "толщина (мм)", "толщина предмета"},
 }
 
 
@@ -274,8 +272,7 @@ def _map_monitor(options: list[dict]) -> dict:
 
 def _map_headphones(options: list[dict]) -> dict:
     raw = _map_options(options, _HEADPHONES_KEYS)
-    has_mic_str = raw.get("has_microphone")
-    has_rgb_str = raw.get("has_rgb")
+    extra = (raw.get("extra_options") or "").lower()
     freq_min = raw.get("freq_min")
     freq_max = raw.get("freq_max")
     if freq_min and freq_max:
@@ -285,15 +282,19 @@ def _map_headphones(options: list[dict]) -> dict:
     else:
         frequency_response = freq_min or freq_max
     imp_str = raw.get("impedance_ohm")
+    # микрофон, шумоподавление и подсветка могут быть в "Доп. опции наушников"
+    has_microphone = "микрофон" in extra
+    noise_cancellation = "шумоподавление" in extra or None
+    has_rgb = "подсветка" in extra or "rgb" in extra
     return {
         "construction_type":  raw.get("construction_type"),
         "connection_types":   raw.get("connection_types"),
-        "has_microphone":     _parse_bool(has_mic_str) if has_mic_str else False,
-        "noise_cancellation": raw.get("noise_cancellation"),
+        "has_microphone":     has_microphone,
+        "noise_cancellation": "есть" if noise_cancellation else None,
         "frequency_response": frequency_response,
         "impedance_ohm":      _parse_int(imp_str) if imp_str else None,
         "color":              raw.get("color"),
-        "has_rgb":            _parse_bool(has_rgb_str) if has_rgb_str else False,
+        "has_rgb":            has_rgb,
     }
 
 
