@@ -12,6 +12,14 @@ from app.parsers.dns import (
     parse_mice_dns, parse_keyboards_dns, parse_monitors_dns,
     parse_headphones_dns, parse_microphones_dns, parse_mousepads_dns,
 )
+from app.parsers.citilink import (
+    parse_mice as parse_mice_citilink,
+    parse_keyboards as parse_keyboards_citilink,
+    parse_monitors as parse_monitors_citilink,
+    parse_headphones as parse_headphones_citilink,
+    parse_microphones as parse_microphones_citilink,
+    parse_mousepads as parse_mousepads_citilink,
+)
 from app.parsers.wildberries import (
     parse_mice as parse_mice_wb,
     parse_keyboards as parse_keyboards_wb,
@@ -117,6 +125,36 @@ def trigger_parse_microphones_dns(db: Session = Depends(get_db)):
 @router.post("/parse/mousepads/dns", dependencies=[Depends(_require_admin)])
 def trigger_parse_mousepads_dns(db: Session = Depends(get_db)):
     return parse_mousepads_dns(db)
+
+
+@router.post("/parse/mice/citilink", dependencies=[Depends(_require_admin)])
+def trigger_parse_mice_citilink(db: Session = Depends(get_db)):
+    return parse_mice_citilink(db)
+
+
+@router.post("/parse/keyboards/citilink", dependencies=[Depends(_require_admin)])
+def trigger_parse_keyboards_citilink(db: Session = Depends(get_db)):
+    return parse_keyboards_citilink(db)
+
+
+@router.post("/parse/monitors/citilink", dependencies=[Depends(_require_admin)])
+def trigger_parse_monitors_citilink(db: Session = Depends(get_db)):
+    return parse_monitors_citilink(db)
+
+
+@router.post("/parse/headphones/citilink", dependencies=[Depends(_require_admin)])
+def trigger_parse_headphones_citilink(db: Session = Depends(get_db)):
+    return parse_headphones_citilink(db)
+
+
+@router.post("/parse/microphones/citilink", dependencies=[Depends(_require_admin)])
+def trigger_parse_microphones_citilink(db: Session = Depends(get_db)):
+    return parse_microphones_citilink(db)
+
+
+@router.post("/parse/mousepads/citilink", dependencies=[Depends(_require_admin)])
+def trigger_parse_mousepads_citilink(db: Session = Depends(get_db)):
+    return parse_mousepads_citilink(db)
 
 
 @router.post("/backfill/mice", dependencies=[Depends(_require_admin)])

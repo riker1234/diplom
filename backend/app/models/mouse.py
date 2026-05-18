@@ -26,6 +26,9 @@ class Mouse(Base, TimestampMixin):
     wb_sku = Column(String, unique=True, nullable=True)
     wb_url = Column(String, nullable=True)
     wb_price = Column(Float, nullable=True)
+    citilink_sku = Column(String, unique=True, nullable=True)
+    citilink_url = Column(String, nullable=True)
+    citilink_price = Column(Float, nullable=True)
     image_url = Column(String, nullable=True)
 
     @property
@@ -37,4 +40,6 @@ class Mouse(Base, TimestampMixin):
             parts.append("wb")
         if self.dns_sku:
             parts.append("dns")
+        if self.citilink_sku:
+            parts.append("citilink")
         return "+".join(parts) if parts else "unknown"

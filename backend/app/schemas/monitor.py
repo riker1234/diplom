@@ -12,10 +12,12 @@ class MonitorResponse(BaseModel):
     matrix_type: Optional[str] = None
     price: Optional[float] = None
     wb_price: Optional[float] = None
+    citilink_price: Optional[float] = None
     image_url: Optional[str] = None
     ozon_url: Optional[str] = None
     dns_url: Optional[str] = None
     wb_url: Optional[str] = None
+    citilink_url: Optional[str] = None
     source: Optional[str] = None
     updated_at: Optional[datetime] = None
 
