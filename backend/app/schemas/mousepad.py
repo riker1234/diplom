@@ -11,9 +11,12 @@ class MousepadResponse(BaseModel):
     hardness: Optional[str] = None
     has_rgb: Optional[bool] = None
     price: Optional[float] = None
+    wb_price: Optional[float] = None
     image_url: Optional[str] = None
+    ozon_url: Optional[str] = None
     dns_url: Optional[str] = None
     wb_url: Optional[str] = None
+    source: Optional[str] = None
     updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}

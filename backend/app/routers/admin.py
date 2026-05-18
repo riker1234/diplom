@@ -12,6 +12,14 @@ from app.parsers.dns import (
     parse_mice_dns, parse_keyboards_dns, parse_monitors_dns,
     parse_headphones_dns, parse_microphones_dns, parse_mousepads_dns,
 )
+from app.parsers.wildberries import (
+    parse_mice as parse_mice_wb,
+    parse_keyboards as parse_keyboards_wb,
+    parse_monitors as parse_monitors_wb,
+    parse_headphones as parse_headphones_wb,
+    parse_microphones as parse_microphones_wb,
+    parse_mousepads as parse_mousepads_wb,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -49,6 +57,36 @@ def trigger_parse_microphones(db: Session = Depends(get_db)):
 @router.post("/parse/mousepads", dependencies=[Depends(_require_admin)])
 def trigger_parse_mousepads(db: Session = Depends(get_db)):
     return parse_mousepads(db)
+
+
+@router.post("/parse/mice/wb", dependencies=[Depends(_require_admin)])
+def trigger_parse_mice_wb(db: Session = Depends(get_db)):
+    return parse_mice_wb(db)
+
+
+@router.post("/parse/keyboards/wb", dependencies=[Depends(_require_admin)])
+def trigger_parse_keyboards_wb(db: Session = Depends(get_db)):
+    return parse_keyboards_wb(db)
+
+
+@router.post("/parse/monitors/wb", dependencies=[Depends(_require_admin)])
+def trigger_parse_monitors_wb(db: Session = Depends(get_db)):
+    return parse_monitors_wb(db)
+
+
+@router.post("/parse/headphones/wb", dependencies=[Depends(_require_admin)])
+def trigger_parse_headphones_wb(db: Session = Depends(get_db)):
+    return parse_headphones_wb(db)
+
+
+@router.post("/parse/microphones/wb", dependencies=[Depends(_require_admin)])
+def trigger_parse_microphones_wb(db: Session = Depends(get_db)):
+    return parse_microphones_wb(db)
+
+
+@router.post("/parse/mousepads/wb", dependencies=[Depends(_require_admin)])
+def trigger_parse_mousepads_wb(db: Session = Depends(get_db)):
+    return parse_mousepads_wb(db)
 
 
 @router.post("/parse/mice/dns", dependencies=[Depends(_require_admin)])
