@@ -76,10 +76,17 @@ def _search_citilink(query: str, limit: int = 36) -> list[dict]:
                     break;
                 }
             }
+            var img = c.querySelector('img[src]');
+            var imgSrc = '';
+            if (img) {
+                imgSrc = img.getAttribute('src') || img.getAttribute('data-src') || '';
+                if (imgSrc.startsWith('//')) imgSrc = 'https:' + imgSrc;
+            }
             result.push({
                 id: c.getAttribute('data-meta-product-id'),
                 href: a ? a.href : '',
-                name: name
+                name: name,
+                image_url: imgSrc
             });
         }
         return result;
@@ -405,12 +412,16 @@ def _run_parse(
                     updated += 1
                     continue
 
+                image_url = product.get("image_url") or None
+
                 # Ищем по названию среди уже существующих записей
                 matched = _find_by_name(db, model_class, name)
                 if matched:
                     matched.citilink_sku = citilink_sku
                     matched.citilink_url = citilink_url
                     matched.citilink_price = citilink_price
+                    if image_url and not matched.image_url:
+                        matched.image_url = image_url
                     for f, v in chars.items():
                         if v is not None:
                             setattr(matched, f, v)
@@ -424,6 +435,7 @@ def _run_parse(
                         citilink_sku=citilink_sku,
                         citilink_url=citilink_url,
                         citilink_price=citilink_price,
+                        image_url=image_url,
                         **chars,
                     ))
                     db.commit()

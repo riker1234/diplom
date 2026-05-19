@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchCatalog } from '../api'
+import ProductModal from '../components/ProductModal'
 
 const CATEGORIES = [
   { id: 'mouse', label: 'Мыши' },
@@ -9,6 +10,23 @@ const CATEGORIES = [
   { id: 'microphone', label: 'Микрофоны' },
   { id: 'mousepad', label: 'Коврики' },
 ]
+
+const SOURCES = [
+  { id: 'all', label: 'Все' },
+  { id: 'ozon', label: 'Ozon' },
+  { id: 'wb', label: 'Wildberries' },
+  { id: 'dns', label: 'DNS' },
+  { id: 'citilink', label: 'Ситилинк' },
+]
+
+function matchesSource(item: any, source: string): boolean {
+  if (source === 'all') return true
+  if (source === 'ozon') return !!item.ozon_url
+  if (source === 'wb') return !!item.wb_url
+  if (source === 'dns') return !!item.dns_url
+  if (source === 'citilink') return !!item.citilink_url
+  return true
+}
 
 function formatPrice(p: number | null | undefined) {
   if (p == null) return null
@@ -22,12 +40,37 @@ function bestPrice(item: any): number | null {
   return prices.length ? Math.min(...prices) : null
 }
 
+function ImageBox({ url, name }: { url: string | null; name: string }) {
+  const [failed, setFailed] = useState(false)
+
+  if (!url || failed) {
+    return (
+      <div className="h-36 bg-gray-100 flex items-center justify-center shrink-0">
+        <span className="text-gray-300 text-sm">Нет фото</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="h-36 bg-gray-50 flex items-center justify-center p-3 shrink-0">
+      <img
+        src={url}
+        alt={name}
+        className="max-h-full max-w-full object-contain"
+        onError={() => setFailed(true)}
+      />
+    </div>
+  )
+}
+
 export default function CatalogPage() {
   const [category, setCategory] = useState('mouse')
+  const [source, setSource] = useState('all')
   const [priceMin, setPriceMin] = useState('')
   const [priceMax, setPriceMax] = useState('')
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [selected, setSelected] = useState<any | null>(null)
 
   useEffect(() => {
     const params: Record<string, string> = {}
@@ -41,11 +84,14 @@ export default function CatalogPage() {
       .finally(() => setLoading(false))
   }, [category, priceMin, priceMax])
 
+  const filtered = items.filter((item) => matchesSource(item, source))
+
   return (
     <main className="max-w-5xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Каталог</h1>
 
-      <div className="flex gap-2 flex-wrap mb-5">
+      {/* Category tabs */}
+      <div className="flex gap-2 flex-wrap mb-4">
         {CATEGORIES.map((cat) => (
           <button
             key={cat.id}
@@ -61,6 +107,24 @@ export default function CatalogPage() {
         ))}
       </div>
 
+      {/* Source filter */}
+      <div className="flex gap-2 flex-wrap mb-5">
+        {SOURCES.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => setSource(s.id)}
+            className={`px-3 py-1 rounded-full text-sm border transition-colors cursor-pointer ${
+              source === s.id
+                ? 'bg-gray-800 text-white border-gray-800'
+                : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Price filter */}
       <div className="flex gap-3 items-center flex-wrap mb-6">
         <span className="text-sm text-gray-500">Цена:</span>
         <input
@@ -81,10 +145,7 @@ export default function CatalogPage() {
         <span className="text-sm text-gray-500">₽</span>
         {(priceMin || priceMax) && (
           <button
-            onClick={() => {
-              setPriceMin('')
-              setPriceMax('')
-            }}
+            onClick={() => { setPriceMin(''); setPriceMax('') }}
             className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
           >
             Сбросить
@@ -96,38 +157,28 @@ export default function CatalogPage() {
         <div className="text-center py-16 text-gray-400">Загрузка...</div>
       ) : (
         <>
-          <p className="text-sm text-gray-400 mb-4">{items.length} товаров</p>
-          {items.length === 0 ? (
+          <p className="text-sm text-gray-400 mb-4">{filtered.length} товаров</p>
+
+          {filtered.length === 0 ? (
             <div className="text-center py-16 text-gray-400">Товары не найдены</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {items.map((item) => {
+              {filtered.map((item) => {
                 const bp = bestPrice(item)
                 const links = [
                   item.ozon_url && { label: 'Ozon', url: item.ozon_url, price: item.price },
                   item.wb_url && { label: 'WB', url: item.wb_url, price: item.wb_price },
                   item.dns_url && { label: 'DNS', url: item.dns_url, price: null },
-                  item.citilink_url && {
-                    label: 'Ситилинк',
-                    url: item.citilink_url,
-                    price: item.citilink_price,
-                  },
+                  item.citilink_url && { label: 'Ситилинк', url: item.citilink_url, price: item.citilink_price },
                 ].filter(Boolean) as { label: string; url: string; price: number | null }[]
 
                 return (
                   <div
                     key={item.id}
-                    className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow flex flex-col"
+                    onClick={() => setSelected(item)}
+                    className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md hover:border-blue-300 transition-all flex flex-col cursor-pointer"
                   >
-                    {item.image_url && (
-                      <div className="h-36 bg-gray-50 flex items-center justify-center p-3 shrink-0">
-                        <img
-                          src={item.image_url}
-                          alt={item.name}
-                          className="max-h-full max-w-full object-contain"
-                        />
-                      </div>
-                    )}
+                    <ImageBox url={item.image_url} name={item.name} />
                     <div className="p-3 flex flex-col flex-1">
                       {item.brand && (
                         <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">
@@ -149,6 +200,7 @@ export default function CatalogPage() {
                             href={link.url}
                             target="_blank"
                             rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
                             className="text-xs bg-gray-100 hover:bg-gray-200 rounded px-2 py-1 text-gray-600 transition-colors"
                           >
                             {link.label}
@@ -163,6 +215,10 @@ export default function CatalogPage() {
             </div>
           )}
         </>
+      )}
+
+      {selected && (
+        <ProductModal item={selected} onClose={() => setSelected(null)} />
       )}
     </main>
   )

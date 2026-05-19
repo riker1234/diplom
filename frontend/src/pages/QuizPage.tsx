@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { fetchQuestions, fetchRecommendations, Question } from '../api'
+import { fetchQuestions, fetchRecommendations } from '../api'
+import type { Question } from '../api'
 
 const CATEGORY_LABELS: Record<string, string> = {
   mouse: 'Мышь',

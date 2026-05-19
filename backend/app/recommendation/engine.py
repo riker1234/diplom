@@ -96,11 +96,17 @@ def _build_query(category: str, answers: dict, db: Session, model):
             query = query.filter(model.diagonal_inch >= 27)
 
     elif category == "headphones":
-        has_mic = answers.get("has_microphone")
-        if has_mic == "yes":
-            query = query.filter(model.has_microphone == True)
-        elif has_mic == "no":
-            query = query.filter(model.has_microphone == False)
+        construction = answers.get("construction_type")
+        if construction == "fullsize":
+            query = query.filter(
+                model.construction_type.ilike("%полноразмер%") |
+                model.construction_type.ilike("%накладн%")
+            )
+        elif construction == "earbuds":
+            query = query.filter(
+                model.construction_type.ilike("%вкладыш%") |
+                model.construction_type.ilike("%внутриканальн%")
+            )
 
         connection = answers.get("connection")
         if connection == "wired":

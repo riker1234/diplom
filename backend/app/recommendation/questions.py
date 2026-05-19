@@ -109,12 +109,12 @@ QUESTIONS: dict[str, list[dict]] = {
             ],
         },
         {
-            "id": "has_microphone",
-            "text": "Нужен встроенный микрофон?",
+            "id": "construction_type",
+            "text": "Тип конструкции?",
             "type": "choice",
             "options": [
-                {"value": "yes", "label": "Да"},
-                {"value": "no", "label": "Нет"},
+                {"value": "fullsize", "label": "Полноразмерные / накладные (over-ear)"},
+                {"value": "earbuds", "label": "Вкладыши / внутриканальные (in-ear)"},
                 {"value": "any", "label": "Не важно"},
             ],
         },
