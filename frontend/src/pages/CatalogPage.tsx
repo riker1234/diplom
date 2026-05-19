@@ -12,7 +12,6 @@ const CATEGORIES = [
 ]
 
 const SOURCES = [
-  { id: 'all', label: 'Все' },
   { id: 'ozon', label: 'Ozon' },
   { id: 'wb', label: 'Wildberries' },
   { id: 'citilink', label: 'Ситилинк' },
@@ -25,13 +24,12 @@ const SORT_OPTIONS = [
   { id: 'name_asc', label: 'По названию А-Я' },
 ]
 
-function matchesSource(item: any, source: string): boolean {
-  if (source === 'all') return true
-  if (source === 'ozon') return !!item.ozon_url
-  if (source === 'wb') return !!item.wb_url
-  if (source === 'dns') return !!item.dns_url
-  if (source === 'citilink') return !!item.citilink_url
-  return true
+function matchesSources(item: any, sources: Set<string>): boolean {
+  if (sources.size === 0) return true
+  if (sources.has('ozon') && item.ozon_url) return true
+  if (sources.has('wb') && item.wb_url) return true
+  if (sources.has('citilink') && item.citilink_url) return true
+  return false
 }
 
 function formatPrice(p: number | null | undefined) {
@@ -71,7 +69,7 @@ function ImageBox({ url, name }: { url: string | null; name: string }) {
 
 export default function CatalogPage() {
   const [category, setCategory] = useState('mouse')
-  const [source, setSource] = useState('all')
+  const [sources, setSources] = useState<Set<string>>(new Set())
   const [sort, setSort] = useState('default')
   const [priceMin, setPriceMin] = useState('')
   const [priceMax, setPriceMax] = useState('')
@@ -92,7 +90,7 @@ export default function CatalogPage() {
   }, [category, priceMin, priceMax])
 
   const filtered = items
-    .filter((item) => matchesSource(item, source))
+    .filter((item) => matchesSources(item, sources))
     .sort((a, b) => {
       if (sort === 'price_asc') return (bestPrice(a) ?? Infinity) - (bestPrice(b) ?? Infinity)
       if (sort === 'price_desc') return (bestPrice(b) ?? 0) - (bestPrice(a) ?? 0)
@@ -122,13 +120,29 @@ export default function CatalogPage() {
       </div>
 
       {/* Source filter */}
-      <div className="flex gap-2 flex-wrap mb-5">
+      <div className="flex gap-2 flex-wrap mb-5 items-center">
+        <button
+          onClick={() => setSources(new Set())}
+          className={`px-3 py-1 rounded-full text-sm border transition-colors cursor-pointer ${
+            sources.size === 0
+              ? 'bg-gray-800 text-white border-gray-800'
+              : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+          }`}
+        >
+          Все
+        </button>
         {SOURCES.map((s) => (
           <button
             key={s.id}
-            onClick={() => setSource(s.id)}
+            onClick={() => {
+              setSources(prev => {
+                const next = new Set(prev)
+                next.has(s.id) ? next.delete(s.id) : next.add(s.id)
+                return next
+              })
+            }}
             className={`px-3 py-1 rounded-full text-sm border transition-colors cursor-pointer ${
-              source === s.id
+              sources.has(s.id)
                 ? 'bg-gray-800 text-white border-gray-800'
                 : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
             }`}
