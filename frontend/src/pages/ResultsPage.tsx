@@ -1,0 +1,132 @@
+import { useLocation, useNavigate, Link } from 'react-router-dom'
+import { RecommendResultItem } from '../api'
+
+const CATEGORY_LABELS: Record<string, string> = {
+  mouse: 'Мышь',
+  keyboard: 'Клавиатура',
+  monitor: 'Монитор',
+  headphones: 'Наушники',
+  microphone: 'Микрофон',
+  mousepad: 'Коврик',
+}
+
+function formatPrice(p: number | null | undefined) {
+  if (p == null) return null
+  return p.toLocaleString('ru-RU') + ' ₽'
+}
+
+interface StoreLinkProps {
+  label: string
+  url: string | null
+  price?: number | null
+}
+
+function StoreLink({ label, url, price }: StoreLinkProps) {
+  if (!url) return null
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center justify-between bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg px-3 py-2 text-sm transition-colors"
+    >
+      <span className="text-gray-600 font-medium">{label}</span>
+      {price != null && (
+        <span className="text-gray-900 font-semibold ml-3">{formatPrice(price)}</span>
+      )}
+    </a>
+  )
+}
+
+function ProductCard({ item }: { item: RecommendResultItem }) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+      {item.image_url && (
+        <div className="h-44 bg-gray-50 flex items-center justify-center p-4 shrink-0">
+          <img
+            src={item.image_url}
+            alt={item.name}
+            className="max-h-full max-w-full object-contain"
+          />
+        </div>
+      )}
+      <div className="p-4 flex flex-col flex-1">
+        {item.brand && (
+          <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">{item.brand}</div>
+        )}
+        <h3 className="font-medium text-gray-900 text-sm leading-snug mb-3 line-clamp-2 flex-1">
+          {item.name}
+        </h3>
+        {item.best_price != null && (
+          <div className="text-blue-600 font-bold text-lg mb-3">
+            от {formatPrice(item.best_price)}
+          </div>
+        )}
+        <div className="flex flex-col gap-1.5">
+          <StoreLink label="Ozon" url={item.ozon_url} price={item.price} />
+          <StoreLink label="Wildberries" url={item.wb_url} price={item.wb_price} />
+          <StoreLink label="DNS" url={item.dns_url} />
+          <StoreLink label="Ситилинк" url={item.citilink_url} price={item.citilink_price} />
+        </div>
+        {!item.ozon_url && !item.wb_url && !item.dns_url && !item.citilink_url && (
+          <div className="text-xs text-gray-400 mt-2">Нет ссылок на магазины</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default function ResultsPage() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const state = (location.state ?? {}) as {
+    results?: RecommendResultItem[]
+    category?: string
+  }
+  const { results, category } = state
+
+  if (!results || !category) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-16 text-center">
+        <p className="text-gray-400 mb-4">Нет результатов. Пройдите подбор заново.</p>
+        <Link to="/" className="text-blue-600 hover:underline">
+          На главную
+        </Link>
+      </div>
+    )
+  }
+
+  return (
+    <main className="max-w-5xl mx-auto px-4 py-8">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Результаты подбора</h1>
+          <p className="text-gray-400 text-sm mt-1">
+            {CATEGORY_LABELS[category] ?? category} · {results.length} вариантов
+          </p>
+        </div>
+        <button
+          onClick={() => navigate(`/quiz/${category}`)}
+          className="text-sm text-blue-600 hover:underline"
+        >
+          Изменить ответы
+        </button>
+      </div>
+
+      {results.length === 0 ? (
+        <div className="text-center py-16 text-gray-400">
+          <p className="mb-4">По вашим параметрам ничего не найдено.</p>
+          <button onClick={() => navigate(-1)} className="text-blue-600 hover:underline">
+            Попробовать снова
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {results.map((item) => (
+            <ProductCard key={item.id} item={item} />
+          ))}
+        </div>
+      )}
+    </main>
+  )
+}
