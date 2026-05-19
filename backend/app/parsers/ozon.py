@@ -475,6 +475,7 @@ def _run_parse(
     char_mapper,
     limit: int = 8,
     required_fields: list[str] | None = None,
+    exclude_name_kw: list[str] | None = None,
 ) -> dict:
     added = updated = failed = skipped = 0
     try:
@@ -492,6 +493,9 @@ def _run_parse(
                 continue
             ozon_sku = str(pid)
             name = _get_name(product)
+            if exclude_name_kw and any(kw.lower() in (name or "").lower() for kw in exclude_name_kw):
+                skipped += 1
+                continue
             brand = _get_brand(product)
             price = _get_price(product)
             image_url = _get_image(product)
@@ -590,10 +594,11 @@ def _multi_parse(
     char_mapper,
     limit: int = 8,
     required_fields: list[str] | None = None,
+    exclude_name_kw: list[str] | None = None,
 ) -> dict:
     total = {"added": 0, "updated": 0, "failed": 0, "skipped": 0}
     for q in queries:
-        r = _run_parse(db, q, model_class, char_mapper, limit=limit, required_fields=required_fields)
+        r = _run_parse(db, q, model_class, char_mapper, limit=limit, required_fields=required_fields, exclude_name_kw=exclude_name_kw)
         if "error" in r:
             continue
         total["added"] += r.get("added", 0)
@@ -653,7 +658,8 @@ def parse_microphones(db: Session) -> dict:
         "микрофон rode стриминг",
         "микрофон blue yeti",
     ]
-    return _multi_parse(db, queries, Microphone, _map_microphone, required_fields=["mic_type"])
+    return _multi_parse(db, queries, Microphone, _map_microphone, required_fields=["mic_type"],
+                        exclude_name_kw=["съёмный", "сменный", "для гарнитур", "для наушник"])
 
 
 def parse_mousepads(db: Session) -> dict:

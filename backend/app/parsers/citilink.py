@@ -356,6 +356,7 @@ def _run_parse(
     model_class,
     char_mapper,
     required_fields: list[str] | None = None,
+    exclude_name_kw: list[str] | None = None,
 ) -> dict:
     added = updated = failed = skipped = 0
     seen_ids: set[str] = set()
@@ -393,6 +394,9 @@ def _run_parse(
                     name = _get_driver().execute_script(
                         "var h = document.querySelector('h1'); return h ? h.innerText : '';"
                     ) or citilink_sku
+                if exclude_name_kw and any(kw.lower() in name.lower() for kw in exclude_name_kw):
+                    skipped += 1
+                    continue
                 brand = chars.pop("brand", None)
 
                 if required_fields and all(chars.get(f) is None for f in required_fields):
@@ -486,7 +490,8 @@ def parse_microphones(db: Session) -> dict:
     return _run_parse(db, [
         "usb микрофон конденсаторный", "микрофон стриминговый",
         "микрофон hyperx",
-    ], Microphone, _map_microphone, required_fields=["mic_type"])
+    ], Microphone, _map_microphone, required_fields=["mic_type"],
+    exclude_name_kw=["съёмный", "сменный", "для гарнитур", "для наушник"])
 
 
 def parse_mousepads(db: Session) -> dict:
