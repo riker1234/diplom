@@ -37,6 +37,12 @@ function formatPrice(p: number | null | undefined) {
   return p.toLocaleString('ru-RU') + ' ₽'
 }
 
+function displayBrand(brand: string | null | undefined): string {
+  const s = (brand ?? '').trim()
+  if (!s || /^\d+(\.\d+)?$/.test(s) || s.toLowerCase() === 'оригинал') return 'Неизвестно'
+  return s
+}
+
 function bestPrice(item: any): number | null {
   const prices = [item.price, item.wb_price, item.citilink_price].filter(
     (p): p is number => p != null
@@ -220,11 +226,9 @@ export default function CatalogPage() {
                   >
                     <ImageBox url={item.image_url} name={item.name} />
                     <div className="p-3 flex flex-col flex-1">
-                      {item.brand && (
-                        <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">
-                          {item.brand}
-                        </div>
-                      )}
+                      <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+                        {displayBrand(item.brand)}
+                      </div>
                       <h3 className="font-medium text-gray-900 text-sm leading-snug mb-2 line-clamp-2 flex-1">
                         {item.name}
                       </h3>

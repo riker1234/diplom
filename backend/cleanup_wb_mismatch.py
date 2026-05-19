@@ -19,8 +19,9 @@ MODELS = [Mouse, Keyboard, Monitor, Headphones, Microphone, Mousepad]
 RATIO_THRESHOLD = 2.5
 
 
-def is_rating(value: str) -> bool:
-    return bool(re.match(r"^\d+(\.\d+)?$", (value or "").strip()))
+def is_fake_brand(value: str) -> bool:
+    s = (value or "").strip()
+    return bool(re.match(r"^\d+(\.\d+)?$", s)) or s.lower() == "оригинал"
 
 
 def is_generic_name(name: str, brand: str) -> bool:
@@ -37,7 +38,7 @@ def main():
 
         for item in rows:
             # Fix brand: clear ratings stored as brand
-            if item.brand and is_rating(item.brand):
+            if item.brand and is_fake_brand(item.brand):
                 print(f"  [{model.__tablename__}] id={item.id} clear brand '{item.brand}': {item.name[:50]}")
                 item.brand = None
                 brand_fixed += 1

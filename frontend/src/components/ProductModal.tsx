@@ -32,7 +32,14 @@ const SKIP_FIELDS = new Set([
   'ozon_sku', 'wb_sku', 'dns_sku', 'citilink_sku', 'dns_product_id',
 ])
 
+function displayBrand(brand: unknown): string {
+  const s = String(brand ?? '').trim()
+  if (!s || /^\d+(\.\d+)?$/.test(s) || s.toLowerCase() === 'оригинал') return 'Неизвестно'
+  return s
+}
+
 function formatValue(key: string, val: unknown): string {
+  if (key === 'brand') return displayBrand(val)
   if (typeof val === 'boolean') return val ? 'Да' : 'Нет'
   if (val === null || val === undefined || val === '') return ''
   return String(val)
@@ -85,11 +92,9 @@ export default function ProductModal({ item, onClose }: Props) {
         {/* Header */}
         <div className="flex items-start justify-between p-5 border-b border-gray-100">
           <div className="pr-4">
-            {item.brand && (
-              <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">
-                {String(item.brand)}
-              </div>
-            )}
+            <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+              {displayBrand(item.brand)}
+            </div>
             <h2 className="font-semibold text-gray-900 text-base leading-snug">
               {String(item.name)}
             </h2>
