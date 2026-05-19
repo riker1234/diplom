@@ -18,6 +18,13 @@ const SOURCES = [
   { id: 'citilink', label: 'Ситилинк' },
 ]
 
+const SORT_OPTIONS = [
+  { id: 'default', label: 'По умолчанию' },
+  { id: 'price_asc', label: 'Сначала дешевле' },
+  { id: 'price_desc', label: 'Сначала дороже' },
+  { id: 'name_asc', label: 'По названию А-Я' },
+]
+
 function matchesSource(item: any, source: string): boolean {
   if (source === 'all') return true
   if (source === 'ozon') return !!item.ozon_url
@@ -65,6 +72,7 @@ function ImageBox({ url, name }: { url: string | null; name: string }) {
 export default function CatalogPage() {
   const [category, setCategory] = useState('mouse')
   const [source, setSource] = useState('all')
+  const [sort, setSort] = useState('default')
   const [priceMin, setPriceMin] = useState('')
   const [priceMax, setPriceMax] = useState('')
   const [items, setItems] = useState<any[]>([])
@@ -83,7 +91,14 @@ export default function CatalogPage() {
       .finally(() => setLoading(false))
   }, [category, priceMin, priceMax])
 
-  const filtered = items.filter((item) => matchesSource(item, source))
+  const filtered = items
+    .filter((item) => matchesSource(item, source))
+    .sort((a, b) => {
+      if (sort === 'price_asc') return (bestPrice(a) ?? Infinity) - (bestPrice(b) ?? Infinity)
+      if (sort === 'price_desc') return (bestPrice(b) ?? 0) - (bestPrice(a) ?? 0)
+      if (sort === 'name_asc') return (a.name ?? '').localeCompare(b.name ?? '', 'ru')
+      return 0
+    })
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-8">
@@ -123,7 +138,19 @@ export default function CatalogPage() {
         ))}
       </div>
 
-      {/* Price filter */}
+      {/* Sort + Price filter */}
+      <div className="flex gap-3 items-center flex-wrap mb-6">
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+          className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:border-blue-400 cursor-pointer"
+        >
+          {SORT_OPTIONS.map((o) => (
+            <option key={o.id} value={o.id}>{o.label}</option>
+          ))}
+        </select>
+        <span className="text-gray-300">|</span>
+      </div>
       <div className="flex gap-3 items-center flex-wrap mb-6">
         <span className="text-sm text-gray-500">Цена:</span>
         <input
