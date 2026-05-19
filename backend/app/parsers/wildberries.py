@@ -515,6 +515,8 @@ def _run_parse(
             existing = db.query(model_class).filter(model_class.wb_sku == wb_sku).first()
             if existing:
                 existing.wb_price = wb_price
+                if image_url and not existing.image_url:
+                    existing.image_url = image_url
                 for field, value in chars.items():
                     if value is not None:
                         setattr(existing, field, value)
