@@ -73,9 +73,15 @@ def _build_query(category: str, answers: dict, db: Session, model):
     if category == "mouse":
         wireless = answers.get("wireless")
         if wireless == "yes":
-            query = query.filter(model.connection_types.ilike("%беспровод%"))
+            query = query.filter(
+                model.connection_types.ilike("%беспровод%") |
+                model.connection_types.ilike("%bluetooth%")
+            )
         elif wireless == "no":
-            query = query.filter(model.connection_types == "проводная")
+            query = query.filter(
+                model.connection_types.ilike("%провод%"),
+                ~model.connection_types.ilike("%беспровод%"),
+            )
 
     elif category == "keyboard":
         form_factor = answers.get("form_factor")
@@ -110,9 +116,16 @@ def _build_query(category: str, answers: dict, db: Session, model):
 
         connection = answers.get("connection")
         if connection == "wired":
-            query = query.filter(model.connection_types == "проводная")
+            query = query.filter(
+                model.connection_types.ilike("%провод%"),
+                ~model.connection_types.ilike("%беспровод%"),
+            )
         elif connection == "wireless":
-            query = query.filter(model.connection_types.ilike("%беспровод%"))
+            query = query.filter(
+                model.connection_types.ilike("%беспровод%") |
+                model.connection_types.ilike("%bluetooth%") |
+                model.connection_types.ilike("%tws%")
+            )
 
     elif category == "microphone":
         connection = answers.get("connection")
@@ -124,9 +137,17 @@ def _build_query(category: str, answers: dict, db: Session, model):
     elif category == "mousepad":
         hardness = answers.get("hardness")
         if hardness == "soft":
-            query = query.filter(model.hardness.ilike("%мягк%"))
+            query = query.filter(
+                model.surface_material.ilike("%ткань%") |
+                model.surface_material.ilike("%текстиль%") |
+                model.surface_material.ilike("%нейлон%") |
+                model.surface_material.ilike("%полиэстер%")
+            )
         elif hardness == "hard":
-            query = query.filter(model.hardness.ilike("%жёстк%"))
+            query = query.filter(
+                model.surface_material.ilike("%пластик%") |
+                model.surface_material.ilike("%eva%")
+            )
 
         rgb = answers.get("rgb")
         if rgb == "yes":
@@ -164,10 +185,16 @@ def _score(product, category: str, answers: dict) -> int:
             score += 1
 
     elif category == "monitor":
-        if use_case == "gaming" and product.refresh_rate_hz is not None and product.refresh_rate_hz >= 144:
-            score += 3  # высокая частота обновления важна для игр
-        elif use_case == "work" and product.matrix_type == "IPS":
-            score += 2  # IPS лучше для цветопередачи при работе
+        if use_case == "gaming":
+            if product.refresh_rate_hz is not None and product.refresh_rate_hz >= 144:
+                score += 3
+        elif use_case == "work":
+            if product.matrix_type and product.matrix_type.upper() == "IPS":
+                score += 3
+            if product.refresh_rate_hz is not None and product.refresh_rate_hz >= 144:
+                score -= 3  # высокий Hz — признак игрового монитора
+            if product.name and "игров" in product.name.lower():
+                score -= 2  # явно игровой — не подходит для работы
 
     elif category == "headphones":
         if use_case == "gaming" and product.has_microphone:
