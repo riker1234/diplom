@@ -445,7 +445,11 @@ def _name_similarity(a: str, b: str) -> float:
     return SequenceMatcher(None, a, b).ratio()
 
 
-def _find_by_name(db, model_class, name: str, threshold: float = 0.82):
+def _find_by_name(
+    db, model_class, name: str,
+    brand: str = "", wb_price: float | None = None,
+    threshold: float = 0.82,
+):
     candidates = db.query(model_class).filter(
         model_class.wb_sku == None,
         model_class.name != None,
@@ -453,6 +457,12 @@ def _find_by_name(db, model_class, name: str, threshold: float = 0.82):
     best_score = 0.0
     best_match = None
     for row in candidates:
+        if brand and row.brand and brand.lower() != row.brand.lower():
+            continue
+        if wb_price and row.price:
+            ratio = max(wb_price, row.price) / min(wb_price, row.price)
+            if ratio > 2.5:
+                continue
         score = _name_similarity(name, row.name or "")
         if score > best_score:
             best_score = score
@@ -533,7 +543,7 @@ def _run_parse(
                 continue
 
             # Ищем по названию среди Ozon-записей без WB
-            matched = _find_by_name(db, model_class, name)
+            matched = _find_by_name(db, model_class, name, brand=brand, wb_price=wb_price)
             if matched:
                 matched.wb_sku = wb_sku
                 matched.wb_url = wb_url
