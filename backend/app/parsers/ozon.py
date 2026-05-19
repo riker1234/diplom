@@ -431,8 +431,9 @@ def _get_brand(product: dict) -> str:
             items = state.get("labelListV2", {}).get("items", [])
             for item in items:
                 if item.get("type") == "text":
-                    text = item.get("text", {}).get("text", "")
-                    if text:
+                    text = item.get("text", {}).get("text", "").strip()
+                    # Skip ratings like "4.9", "5.0" and pure numbers
+                    if text and not re.match(r"^\d+(\.\d+)?$", text):
                         return text
     return ""
 

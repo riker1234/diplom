@@ -450,6 +450,12 @@ def _find_by_name(
     brand: str = "", wb_price: float | None = None,
     threshold: float = 0.82,
 ):
+    # Generic short names (< 30 chars, no brand) are too ambiguous to match
+    clean_brand = brand.strip() if brand else ""
+    is_generic = not clean_brand and len(name.strip()) < 30
+    if is_generic:
+        return None
+
     candidates = db.query(model_class).filter(
         model_class.wb_sku == None,
         model_class.name != None,
@@ -457,7 +463,7 @@ def _find_by_name(
     best_score = 0.0
     best_match = None
     for row in candidates:
-        if brand and row.brand and brand.lower() != row.brand.lower():
+        if clean_brand and row.brand and clean_brand.lower() != row.brand.lower():
             continue
         if wb_price and row.price:
             ratio = max(wb_price, row.price) / min(wb_price, row.price)
