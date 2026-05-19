@@ -111,7 +111,8 @@ _MOUSE_KEYS = {
 }
 
 _KEYBOARD_KEYS = {
-    "switches":             {"тип переключателей клавиатуры", "переключатели", "тип переключателей"},
+    "keyboard_type":        {"тип клавиатуры"},
+    "switches":             {"тип переключателей клавиатуры", "переключатели", "тип переключателей", "модель переключателей клавиатуры", "тип механических переключателей"},
     "form_factor":          {"форм-фактор клавиатуры", "форм-фактор", "конструкция"},
     "board_material":       {"материал корпуса клавиатуры", "материал корпуса"},
     "keycap_material":      {"материал клавиш", "материал кейкапов", "материал колпачков"},
@@ -194,6 +195,39 @@ def _parse_bool(value: str) -> bool:
     return low in ("да", "есть", "yes", "+", "true") or "rgb" in low or "подсветка" in low
 
 
+def _normalize_connection_type(value: str | None) -> str | None:
+    if not value:
+        return None
+    low = value.lower()
+    has_wireless = bool(re.search(r'беспровод|bluetooth|радиоканал', low))
+    # Убираем "беспровод*" чтобы слово "провод" внутри не давало ложное срабатывание
+    cleaned = re.sub(r'беспровод\w*', '', low)
+    has_wired = bool(re.search(r'провод', cleaned)) or (
+        bool(re.search(r'\busb\b', cleaned)) and 'донгл' not in cleaned
+    )
+    if has_wired and has_wireless:
+        return "проводная/беспроводная"
+    if has_wireless:
+        return "беспроводная"
+    if has_wired:
+        return "проводная"
+    return value
+
+
+def _sanitize_sensor(value: str | None) -> str | None:
+    """Отбрасывает значения из поля sensor, которые явно не являются названием сенсора."""
+    if not value:
+        return None
+    low = value.lower().strip()
+    # Значения, характерные для типа подключения или категории товара
+    if re.match(r'(беспровод|провод|игровая|игровой|дистанцион)', low):
+        return None
+    # DPI-спецификация вместо названия чипа
+    if re.match(r'\d[\d\s]*dpi', low, re.IGNORECASE):
+        return None
+    return value
+
+
 def _map_options(options: list[dict], keys_map: dict) -> dict:
     result: dict = {k: None for k in keys_map}
     for opt in options:
@@ -224,8 +258,8 @@ def _map_mouse(options: list[dict]) -> dict:
     has_rgb_str = raw.get("has_rgb")
     return {
         "weight_g":         weight_g,
-        "connection_types": raw.get("connection_types"),
-        "sensor":           raw.get("sensor"),
+        "connection_types": _normalize_connection_type(raw.get("connection_types")),
+        "sensor":           _sanitize_sensor(raw.get("sensor")),
         "switches":         raw.get("switches"),
         "button_count":     _parse_int(button_str) if button_str else None,
         "max_dpi":          _parse_dpi(max_dpi_str) if max_dpi_str else None,
@@ -240,12 +274,13 @@ def _map_keyboard(options: list[dict]) -> dict:
     has_rgb_str = raw.get("has_rgb")
     key_count_str = raw.get("key_count")
     return {
+        "keyboard_type":        raw.get("keyboard_type"),
         "switches":             raw.get("switches"),
         "form_factor":          raw.get("form_factor"),
         "board_material":       raw.get("board_material"),
         "keycap_material":      raw.get("keycap_material"),
         "keycap_manufacturing": raw.get("keycap_manufacturing"),
-        "connection_types":     raw.get("connection_types"),
+        "connection_types":     _normalize_connection_type(raw.get("connection_types")),
         "has_rgb":              _parse_bool(has_rgb_str) if has_rgb_str else False,
         "layout":               raw.get("layout"),
         "key_count":            _parse_int(key_count_str) if key_count_str else None,
@@ -288,7 +323,7 @@ def _map_headphones(options: list[dict]) -> dict:
     has_rgb = "подсветка" in extra or "rgb" in extra
     return {
         "construction_type":  raw.get("construction_type"),
-        "connection_types":   raw.get("connection_types"),
+        "connection_types":   _normalize_connection_type(raw.get("connection_types")),
         "has_microphone":     has_microphone,
         "noise_cancellation": "есть" if noise_cancellation else None,
         "frequency_response": frequency_response,
@@ -303,7 +338,7 @@ def _map_microphone(options: list[dict]) -> dict:
     return {
         "mic_type":         raw.get("mic_type"),
         "directionality":   raw.get("directionality"),
-        "connection_types": raw.get("connection_types"),
+        "connection_types": _normalize_connection_type(raw.get("connection_types")),
         "frequency_range":  raw.get("frequency_range"),
         "sample_rate":      raw.get("sample_rate"),
         "bit_depth":        raw.get("bit_depth"),

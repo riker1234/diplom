@@ -111,7 +111,7 @@ def _get_properties(product_url: str) -> tuple[dict, float | None]:
             if (children.length >= 2) {
                 var name = children[0].innerText.trim().replace(/:$/, '');
                 var val  = children[1].innerText.trim();
-                if (name && val && name.length < 80 && !result[name]) {
+                if (name && val && name.length < 80) {
                     result[name] = val;
                 }
             }
@@ -199,10 +199,14 @@ def _map_mouse(props: dict) -> dict:
             max_dpi = _parse_int(max_dpi_str)
 
     has_rgb_str = _get(props, "Подсветка", "Тип подсветки")
+    # Ситилинк хранит в поле "Сенсор" DPI-спецификацию ("3600 dpi, ускорение 8 G"),
+    # а не название чипа — отбрасываем такие значения.
+    sensor_raw = _get(props, "Сенсор")
+    sensor = None if (sensor_raw and re.search(r'\d.*dpi', sensor_raw, re.IGNORECASE)) else sensor_raw
     return {
         "brand":            _get(props, "Бренд"),
         "connection_types": _get(props, "Тип соединения мыши", "Интерфейс подключения"),
-        "sensor":           _get(props, "Сенсор"),
+        "sensor":           sensor,
         "switches":         _get(props, "Переключатели кнопок"),
         "button_count":     _parse_int(_get(props, "Количество кнопок") or ""),
         "max_dpi":          max_dpi,
@@ -220,6 +224,7 @@ def _map_keyboard(props: dict) -> dict:
     key_count_str = _get(props, "Количество клавиш")
     return {
         "brand":                _get(props, "Бренд"),
+        "keyboard_type":        _get(props, "Тип клавиатуры"),
         "switches":             _get(props, "Тип переключателей", "Переключатели"),
         "form_factor":          _get(props, "Форм-фактор", "Конструкция"),
         "board_material":       _get(props, "Материал корпуса"),

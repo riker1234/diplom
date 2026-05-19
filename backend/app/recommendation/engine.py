@@ -1,3 +1,4 @@
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from app.models.mouse import Mouse
 from app.models.keyboard import Keyboard
@@ -23,12 +24,17 @@ _SWITCH_KEYWORDS: dict[str, list[str]] = {
 }
 
 
+def _best_price(product) -> float | None:
+    prices = [p for p in [product.price, product.wb_price, product.citilink_price] if p is not None]
+    return min(prices) if prices else None
+
+
 def recommend(category: str, answers: dict, db: Session) -> list[dict]:
     model = _MODEL_MAP[category]
     products = _build_query(category, answers, db, model).all()
 
     scored = [(p, _score(p, category, answers)) for p in products]
-    scored.sort(key=lambda x: (-x[1], x[0].price or 0))
+    scored.sort(key=lambda x: (-x[1], _best_price(x[0]) or 0))
 
     return [
         {
@@ -36,10 +42,15 @@ def recommend(category: str, answers: dict, db: Session) -> list[dict]:
             "name": p.name,
             "brand": p.brand,
             "price": p.price,
+            "wb_price": p.wb_price,
+            "citilink_price": p.citilink_price,
+            "best_price": _best_price(p),
             "score": score,
             "image_url": p.image_url,
+            "ozon_url": p.ozon_url,
             "dns_url": p.dns_url,
             "wb_url": p.wb_url,
+            "citilink_url": p.citilink_url,
         }
         for p, score in scored[:20]
     ]
@@ -50,14 +61,21 @@ def _build_query(category: str, answers: dict, db: Session, model):
 
     budget = answers.get("budget")
     if budget is not None:
-        query = query.filter(model.price <= float(budget))
+        budget = float(budget)
+        query = query.filter(
+            or_(
+                model.price <= budget,
+                model.wb_price <= budget,
+                model.citilink_price <= budget,
+            )
+        )
 
     if category == "mouse":
         wireless = answers.get("wireless")
         if wireless == "yes":
-            query = query.filter(model.connection_types.contains("Wireless"))
+            query = query.filter(model.connection_types.ilike("%беспровод%"))
         elif wireless == "no":
-            query = query.filter(model.connection_types.contains("USB"))
+            query = query.filter(model.connection_types == "проводная")
 
     elif category == "keyboard":
         form_factor = answers.get("form_factor")
@@ -86,12 +104,9 @@ def _build_query(category: str, answers: dict, db: Session, model):
 
         connection = answers.get("connection")
         if connection == "wired":
-            query = query.filter(
-                model.connection_types.isnot(None),
-                ~model.connection_types.ilike("%bluetooth%"),
-            )
+            query = query.filter(model.connection_types == "проводная")
         elif connection == "wireless":
-            query = query.filter(model.connection_types.ilike("%bluetooth%"))
+            query = query.filter(model.connection_types.ilike("%беспровод%"))
 
     elif category == "microphone":
         connection = answers.get("connection")

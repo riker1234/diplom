@@ -12,10 +12,15 @@ class RecommendResultItem(BaseModel):
     name: str
     brand: Optional[str] = None
     price: Optional[float] = None
+    wb_price: Optional[float] = None
+    citilink_price: Optional[float] = None
+    best_price: Optional[float] = None
     score: int
     image_url: Optional[str] = None
+    ozon_url: Optional[str] = None
     dns_url: Optional[str] = None
     wb_url: Optional[str] = None
+    citilink_url: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

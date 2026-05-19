@@ -93,7 +93,8 @@ _MOUSE_KEYS = {
 }
 
 _KEYBOARD_KEYS = {
-    "switches":             {"тип переключателей", "переключатели", "тип свитчей"},
+    "keyboard_type":        {"тип клавиатуры"},
+    "switches":             {"тип переключателей", "переключатели", "тип свитчей", "тип механических клавиш", "тип механических переключателей"},
     "form_factor":          {"форм-фактор", "размер клавиатуры", "конструкция", "форма"},
     "board_material":       {"материал корпуса", "основной материал корпуса"},
     "keycap_material":      {"материал клавиш", "материал кейкапов"},
@@ -146,6 +147,24 @@ _MOUSEPAD_KEYS = {
     "color":            {"цвет"},
     "thickness_mm":     {"толщина, мм", "толщина"},
 }
+
+
+def _normalize_connection_type(value: str | None) -> str | None:
+    if not value:
+        return None
+    low = value.lower()
+    has_wireless = bool(re.search(r'беспровод|bluetooth|радиоканал', low))
+    cleaned = re.sub(r'беспровод\w*', '', low)
+    has_wired = bool(re.search(r'провод', cleaned)) or (
+        bool(re.search(r'\busb\b', cleaned)) and 'донгл' not in cleaned
+    )
+    if has_wired and has_wireless:
+        return "проводная/беспроводная"
+    if has_wireless:
+        return "беспроводная"
+    if has_wired:
+        return "проводная"
+    return value
 
 
 def _parse_float(value: str) -> float | None:
@@ -203,12 +222,13 @@ def _map_keyboard(options: list[dict]) -> dict:
     has_rgb_str = raw.get("has_rgb")
     key_count_str = raw.get("key_count")
     return {
+        "keyboard_type":        raw.get("keyboard_type"),
         "switches":             raw.get("switches"),
         "form_factor":          raw.get("form_factor"),
         "board_material":       raw.get("board_material"),
         "keycap_material":      raw.get("keycap_material"),
         "keycap_manufacturing": raw.get("keycap_manufacturing"),
-        "connection_types":     raw.get("connection_types"),
+        "connection_types":     _normalize_connection_type(raw.get("connection_types")),
         "has_rgb":              _parse_bool(has_rgb_str) if has_rgb_str else False,
         "layout":               raw.get("layout"),
         "key_count":            _parse_int(key_count_str) if key_count_str else None,

@@ -8,6 +8,7 @@ class Keyboard(Base, TimestampMixin):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     brand = Column(String)
+    keyboard_type = Column(String)
     switches = Column(String)
     board_material = Column(String)
     form_factor = Column(String)
