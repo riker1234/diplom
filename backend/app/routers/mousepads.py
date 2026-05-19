@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db
@@ -27,9 +28,17 @@ def list_mousepads(
     if has_rgb is not None:
         query = query.filter(Mousepad.has_rgb == has_rgb)
     if price_max:
-        query = query.filter(Mousepad.price <= price_max)
+        query = query.filter(or_(
+            Mousepad.price <= price_max,
+            Mousepad.wb_price <= price_max,
+            Mousepad.citilink_price <= price_max,
+        ))
     if price_min:
-        query = query.filter(Mousepad.price >= price_min)
+        query = query.filter(
+            or_(Mousepad.price == None, Mousepad.price >= price_min),
+            or_(Mousepad.wb_price == None, Mousepad.wb_price >= price_min),
+            or_(Mousepad.citilink_price == None, Mousepad.citilink_price >= price_min),
+        )
     return query.all()
 
 @router.get("/{pad_id}", response_model=MousepadResponse)

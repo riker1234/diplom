@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db
@@ -24,9 +25,17 @@ def list_microphones(
     if connection:
         query = query.filter(Microphone.connection_types.contains(connection))
     if price_max:
-        query = query.filter(Microphone.price <= price_max)
+        query = query.filter(or_(
+            Microphone.price <= price_max,
+            Microphone.wb_price <= price_max,
+            Microphone.citilink_price <= price_max,
+        ))
     if price_min:
-        query = query.filter(Microphone.price >= price_min)
+        query = query.filter(
+            or_(Microphone.price == None, Microphone.price >= price_min),
+            or_(Microphone.wb_price == None, Microphone.wb_price >= price_min),
+            or_(Microphone.citilink_price == None, Microphone.citilink_price >= price_min),
+        )
     return query.all()
 
 @router.get("/{mic_id}", response_model=MicrophoneResponse)

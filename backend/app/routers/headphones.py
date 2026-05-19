@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db
@@ -27,9 +28,17 @@ def list_headphones(
     if noise_cancellation:
         query = query.filter(Headphones.noise_cancellation == noise_cancellation)
     if price_max:
-        query = query.filter(Headphones.price <= price_max)
+        query = query.filter(or_(
+            Headphones.price <= price_max,
+            Headphones.wb_price <= price_max,
+            Headphones.citilink_price <= price_max,
+        ))
     if price_min:
-        query = query.filter(Headphones.price >= price_min)
+        query = query.filter(
+            or_(Headphones.price == None, Headphones.price >= price_min),
+            or_(Headphones.wb_price == None, Headphones.wb_price >= price_min),
+            or_(Headphones.citilink_price == None, Headphones.citilink_price >= price_min),
+        )
     return query.all()
 
 @router.get("/{headphones_id}", response_model=HeadphonesResponse)

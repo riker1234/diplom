@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db
@@ -30,9 +31,17 @@ def list_monitors(
     if matrix_type:
         query = query.filter(Monitor.matrix_type == matrix_type)
     if price_max:
-        query = query.filter(Monitor.price <= price_max)
+        query = query.filter(or_(
+            Monitor.price <= price_max,
+            Monitor.wb_price <= price_max,
+            Monitor.citilink_price <= price_max,
+        ))
     if price_min:
-        query = query.filter(Monitor.price >= price_min)
+        query = query.filter(
+            or_(Monitor.price == None, Monitor.price >= price_min),
+            or_(Monitor.wb_price == None, Monitor.wb_price >= price_min),
+            or_(Monitor.citilink_price == None, Monitor.citilink_price >= price_min),
+        )
     return query.all()
 
 @router.get("/{monitor_id}", response_model=MonitorResponse)

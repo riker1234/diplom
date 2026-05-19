@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db
@@ -24,9 +25,17 @@ def list_mice(
     if weight_max:
         query = query.filter(Mouse.weight_g <= weight_max)
     if price_max:
-        query = query.filter(Mouse.price <= price_max)
+        query = query.filter(or_(
+            Mouse.price <= price_max,
+            Mouse.wb_price <= price_max,
+            Mouse.citilink_price <= price_max,
+        ))
     if price_min:
-        query = query.filter(Mouse.price >= price_min)
+        query = query.filter(
+            or_(Mouse.price == None, Mouse.price >= price_min),
+            or_(Mouse.wb_price == None, Mouse.wb_price >= price_min),
+            or_(Mouse.citilink_price == None, Mouse.citilink_price >= price_min),
+        )
     return query.all()
 
 @router.get("/{mouse_id}", response_model=MouseResponse)

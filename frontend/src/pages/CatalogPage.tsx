@@ -99,7 +99,7 @@ export default function CatalogPage() {
     .filter((item) => matchesSources(item, sources))
     .sort((a, b) => {
       if (sort === 'price_asc') return (bestPrice(a) ?? Infinity) - (bestPrice(b) ?? Infinity)
-      if (sort === 'price_desc') return (bestPrice(b) ?? 0) - (bestPrice(a) ?? 0)
+      if (sort === 'price_desc') return (bestPrice(b) ?? -Infinity) - (bestPrice(a) ?? -Infinity)
       if (sort === 'name_asc') return (a.name ?? '').localeCompare(b.name ?? '', 'ru')
       return 0
     })
