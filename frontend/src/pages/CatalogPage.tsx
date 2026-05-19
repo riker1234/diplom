@@ -26,10 +26,10 @@ const SORT_OPTIONS = [
 
 function matchesSources(item: any, sources: Set<string>): boolean {
   if (sources.size === 0) return true
-  if (sources.has('ozon') && item.ozon_url) return true
-  if (sources.has('wb') && item.wb_url) return true
-  if (sources.has('citilink') && item.citilink_url) return true
-  return false
+  if (sources.has('ozon') && !item.ozon_url) return false
+  if (sources.has('wb') && !item.wb_url) return false
+  if (sources.has('citilink') && !item.citilink_url) return false
+  return true
 }
 
 function formatPrice(p: number | null | undefined) {
