@@ -1,3 +1,4 @@
+import re
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from app.models.mouse import Mouse
@@ -16,7 +17,6 @@ _MODEL_MAP = {
     "mousepad": Mousepad,
 }
 
-# Ключевые слова в названии переключателей для каждого типа
 _SWITCH_KEYWORDS: dict[str, list[str]] = {
     "linear": ["Red", "Silver", "Speed", "Yellow", "Black"],
     "tactile": ["Brown", "Clear", "Tactile"],
@@ -29,12 +29,41 @@ def _best_price(product) -> float | None:
     return min(prices) if prices else None
 
 
+def _parse_max_dim(size_str: str) -> int | None:
+    """Extract max dimension in mm from size string like '360x300мм' or '450x400'."""
+    nums = re.findall(r'\d+', size_str or "")
+    if not nums:
+        return None
+    return max(int(n) for n in nums[:2])
+
+
+def _filter_mousepad_size(products: list, size_pref: str | None) -> list:
+    """Python-level filter because size is stored as free-form string."""
+    if not size_pref or size_pref == "any":
+        return products
+    result = []
+    for p in products:
+        dim = _parse_max_dim(p.size or "")
+        if dim is None:
+            result.append(p)  # unknown size — include
+            continue
+        if size_pref == "small" and dim < 350:
+            result.append(p)
+        elif size_pref == "large" and dim >= 350:
+            result.append(p)
+    return result
+
+
 def recommend(category: str, answers: dict, db: Session) -> list[dict]:
     model = _MODEL_MAP[category]
     products = _build_query(category, answers, db, model).all()
 
+    # Python-level filters for fields that can't be filtered in SQL easily
+    if category == "mousepad":
+        products = _filter_mousepad_size(products, answers.get("size"))
+
     scored = [(p, _score(p, category, answers)) for p in products]
-    scored.sort(key=lambda x: (-x[1], _best_price(x[0]) or 0))
+    scored.sort(key=lambda x: (-x[1], _best_price(x[0]) or float("inf")))
 
     return [
         {
@@ -95,9 +124,9 @@ def _build_query(category: str, answers: dict, db: Session, model):
     elif category == "monitor":
         size = answers.get("size")
         if size == "small":
-            query = query.filter(model.diagonal_inch <= 24)
+            query = query.filter(model.diagonal_inch < 24)
         elif size == "medium":
-            query = query.filter(model.diagonal_inch >= 24, model.diagonal_inch <= 27)
+            query = query.filter(model.diagonal_inch >= 24, model.diagonal_inch < 27)
         elif size == "large":
             query = query.filter(model.diagonal_inch >= 27)
 
@@ -162,16 +191,17 @@ def _score(product, category: str, answers: dict) -> int:
     score = 0
     budget = answers.get("budget")
 
-    # +2 если товар стоит не больше 70% от бюджета — выгодная покупка
-    if budget is not None and product.price is not None:
-        if product.price <= float(budget) * 0.7:
+    # БАГ 4 ИСПРАВЛЕН: используем лучшую цену среди всех источников
+    best = _best_price(product)
+    if budget is not None and best is not None:
+        if best <= float(budget) * 0.7:
             score += 2
 
     use_case = answers.get("use_case")
 
     if category == "mouse":
         if use_case == "gaming" and product.weight_g is not None and product.weight_g <= 80:
-            score += 3  # лёгкая мышь — стандарт для игр
+            score += 3
         elif use_case == "office" and product.weight_g is not None and product.weight_g >= 90:
             score += 1
 
@@ -180,7 +210,7 @@ def _score(product, category: str, answers: dict) -> int:
         if switches_pref and switches_pref != "any" and product.switches:
             keywords = _SWITCH_KEYWORDS.get(switches_pref, [])
             if any(kw.lower() in product.switches.lower() for kw in keywords):
-                score += 3  # переключатели совпали с предпочтением
+                score += 3
         if use_case == "gaming" and product.form_factor in ("TKL", "Full"):
             score += 1
 
@@ -192,26 +222,30 @@ def _score(product, category: str, answers: dict) -> int:
             if product.matrix_type and product.matrix_type.upper() == "IPS":
                 score += 3
             if product.refresh_rate_hz is not None and product.refresh_rate_hz >= 144:
-                score -= 3  # высокий Hz — признак игрового монитора
+                score -= 3
             if product.name and "игров" in product.name.lower():
-                score -= 2  # явно игровой — не подходит для работы
+                score -= 2
 
     elif category == "headphones":
         if use_case == "gaming" and product.has_microphone:
-            score += 2  # гарнитура с микрофоном удобна для игр
+            score += 2
         if use_case == "music" and not product.has_microphone:
-            score += 1  # без микрофона — чище звук для музыки
+            score += 1
         if use_case == "calls" and product.has_microphone:
-            score += 3  # микрофон обязателен для звонков
+            score += 3
 
     elif category == "microphone":
         if use_case == "streaming" and product.mic_type and "конденсаторный" in product.mic_type.lower():
-            score += 2  # конденсаторный лучше для стриминга
+            score += 2
         if use_case == "calls" and product.connection_types and "usb" in product.connection_types.lower():
-            score += 2  # USB удобен для звонков без дополнительного оборудования
+            score += 2
 
     elif category == "mousepad":
-        if product.has_rgb:
-            score += 1  # подсветка — приятный бонус
+        # БАГ 2 ИСПРАВЛЕН: RGB только если пользователь хотел подсветку
+        rgb_pref = answers.get("rgb")
+        if rgb_pref == "yes" and product.has_rgb:
+            score += 2
+        elif rgb_pref == "no" and not product.has_rgb:
+            score += 1
 
     return score
