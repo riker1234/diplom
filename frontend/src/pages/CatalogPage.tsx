@@ -15,7 +15,6 @@ const SOURCES = [
   { id: 'all', label: 'Все' },
   { id: 'ozon', label: 'Ozon' },
   { id: 'wb', label: 'Wildberries' },
-  { id: 'dns', label: 'DNS' },
   { id: 'citilink', label: 'Ситилинк' },
 ]
 
