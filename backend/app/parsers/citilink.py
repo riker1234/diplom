@@ -212,7 +212,8 @@ def _map_mouse(props: dict) -> dict:
     sensor = None if (sensor_raw and re.search(r'\d.*dpi', sensor_raw, re.IGNORECASE)) else sensor_raw
     return {
         "brand":            _get(props, "Бренд"),
-        "connection_types": _get(props, "Тип соединения мыши", "Интерфейс подключения"),
+        "connection_types": _get(props, "Тип соединения мыши", "Тип подключения мыши"),
+        "interface":        _get(props, "Интерфейс подключения", "Интерфейс"),
         "sensor":           sensor,
         "switches":         _get(props, "Переключатели кнопок"),
         "button_count":     _parse_int(_get(props, "Количество кнопок") or ""),

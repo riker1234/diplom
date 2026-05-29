@@ -6,6 +6,7 @@ const FIELD_LABELS: Record<string, string> = {
   switches: 'Переключатели',
   form_factor: 'Форм-фактор',
   connection_types: 'Подключение',
+  interface: 'Интерфейс',
   board_material: 'Материал корпуса',
   keycap_material: 'Материал клавиш',
   keycap_manufacturing: 'Производство клавиш',

@@ -12,6 +12,7 @@ class Mouse(Base, TimestampMixin):
     switches = Column(String)
     weight_g = Column(Float)
     connection_types = Column(String)
+    interface = Column(String, nullable=True)
     button_count = Column(Integer)
     max_dpi = Column(Integer)
     color = Column(String)

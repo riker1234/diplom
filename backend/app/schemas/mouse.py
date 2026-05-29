@@ -10,6 +10,7 @@ class MouseResponse(BaseModel):
     switches: Optional[str] = None
     weight_g: Optional[float] = None
     connection_types: Optional[str] = None
+    interface: Optional[str] = None
     price: Optional[float] = None
     wb_price: Optional[float] = None
     citilink_price: Optional[float] = None
