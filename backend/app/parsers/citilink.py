@@ -96,27 +96,29 @@ def _get_properties(product_url: str) -> tuple[dict, float | None]:
     props_url = product_url.rstrip("/") + "/properties/"
     page.goto(props_url, wait_until="load", timeout=45000)
     try:
-        page.wait_for_selector('[class*="Properties"]', timeout=10000)
-        # wait for full spec table (>10 rows means detailed view loaded)
-        page.wait_for_function(
-            "() => document.querySelectorAll('[class*=\"Properties\"]').length > 10",
-            timeout=8000,
-        )
+        # Wait for the detailed spec groups (only appear after full load)
+        page.wait_for_selector('[class*="PropertyGroupWrapper"]', timeout=12000)
     except Exception:
-        pass
+        try:
+            page.wait_for_selector('[class*="PropertiesItem"]', timeout=5000)
+        except Exception:
+            pass
 
     data = page.evaluate("""
         () => {
             var result = {};
-            var items = document.querySelectorAll('[class*="Properties"]');
+            // Detailed table: PropertyGroupWrapper -> PropertiesItem
+            var items = document.querySelectorAll('[class*="PropertyGroupWrapper"] [class*="PropertiesItem"]');
+            if (items.length === 0) {
+                items = document.querySelectorAll('[class*="PropertiesItem"]');
+            }
             items.forEach(function(el) {
-                var children = el.children;
-                if (children.length >= 2) {
-                    var name = children[0].innerText.trim().replace(/:$/, '');
-                    var val  = children[1].innerText.trim();
-                    if (name && val && name.length < 80) {
-                        result[name] = val;
-                    }
+                var nameEl = el.querySelector('[class*="PropertiesName"]');
+                var valEl  = el.querySelector('[class*="PropertiesValue"]');
+                if (nameEl && valEl) {
+                    var name = nameEl.innerText.trim().replace(/:$/, '');
+                    var val  = valEl.innerText.trim();
+                    if (name && val && name.length < 80) result[name] = val;
                 }
             });
             return result;
