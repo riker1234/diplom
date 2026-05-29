@@ -486,6 +486,12 @@ def _get_name(product: dict) -> str:
     return ""
 
 
+_PROMO_LABELS = re.compile(
+    r"стало дешевле|скидк|хит продаж|новинк|топ продаж|бестселлер|"
+    r"^\-\d+%|распродажа|акция|выгода|дня|недели",
+    re.IGNORECASE,
+)
+
 def _get_brand(product: dict, name: str = "") -> str:
     for state in product.get("mainState", []):
         if state.get("type") == "labelListV2":
@@ -493,7 +499,7 @@ def _get_brand(product: dict, name: str = "") -> str:
             for item in items:
                 if item.get("type") == "text":
                     text = item.get("text", {}).get("text", "").strip()
-                    if text and not re.match(r"^\d+(\.\d+)?$", text):
+                    if text and not re.match(r"^\d+(\.\d+)?$", text) and not _PROMO_LABELS.search(text):
                         return text
     # Fallback: first word of product name
     if name:
@@ -755,10 +761,10 @@ def backfill_monitors(db: Session) -> dict:
     return _backfill(db, Monitor, _map_monitor, "matrix_type")
 
 def backfill_headphones(db: Session) -> dict:
-    return _backfill(db, Headphones, _map_headphones, "connection_types")
+    return _backfill(db, Headphones, _map_headphones, "interface")
 
 def backfill_microphones(db: Session) -> dict:
-    return _backfill(db, Microphone, _map_microphone, "mic_type")
+    return _backfill(db, Microphone, _map_microphone, "interface")
 
 def backfill_mousepads(db: Session) -> dict:
     return _backfill(db, Mousepad, _map_mousepad, "hardness")
