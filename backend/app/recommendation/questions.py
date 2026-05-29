@@ -57,6 +57,7 @@ QUESTIONS: dict[str, list[dict]] = {
                 {"value": "linear", "label": "Линейные (тихие, плавные)"},
                 {"value": "tactile", "label": "Тактильные (с ощущением клика)"},
                 {"value": "clicky", "label": "Кликающие (громкие)"},
+                {"value": "magnetic", "label": "Магнитные (Hall Effect)"},
                 {"value": "any", "label": "Не важно"},
             ],
         },

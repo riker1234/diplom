@@ -18,9 +18,10 @@ _MODEL_MAP = {
 }
 
 _SWITCH_KEYWORDS: dict[str, list[str]] = {
-    "linear": ["Red", "Silver", "Speed", "Yellow", "Black"],
-    "tactile": ["Brown", "Clear", "Tactile"],
-    "clicky": ["Blue", "Green", "Clicky"],
+    "linear": ["Red", "Silver", "Speed", "Yellow", "Black", "линейн", "linear", "Cream", "Amber", "Mute"],
+    "tactile": ["Brown", "Clear", "Tactile", "тактильн", "White"],
+    "clicky": ["Blue", "Green", "Clicky", "кликающ", "Зелен", "Purple"],
+    "magnetic": ["Magnetic", "Hall", "магнитн", "halleffect"],
 }
 
 

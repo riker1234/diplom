@@ -443,9 +443,10 @@ def _run_parse(
                     model_class.citilink_sku == citilink_sku
                 ).first()
                 if existing:
-                    existing.citilink_price = citilink_price
+                    if citilink_price is not None:
+                        existing.citilink_price = citilink_price
                     for f, v in chars.items():
-                        if v is not None:
+                        if v is not None and getattr(existing, f, None) is None:
                             setattr(existing, f, v)
                     db.commit()
                     updated += 1
@@ -461,7 +462,7 @@ def _run_parse(
                     if image_url and not matched.image_url:
                         matched.image_url = image_url
                     for f, v in chars.items():
-                        if v is not None:
+                        if v is not None and getattr(matched, f, None) is None:
                             setattr(matched, f, v)
                     db.commit()
                     updated += 1
