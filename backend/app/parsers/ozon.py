@@ -504,7 +504,7 @@ def _get_brand(product: dict, name: str = "") -> str:
     # Fallback: first word of product name
     if name:
         first = name.strip().split()[0]
-        if len(first) > 1 and not re.match(r"^\d+$", first):
+        if len(first) > 1 and not re.match(r"^\d+(\.\d+)?$", first):
             return first
     return ""
 
