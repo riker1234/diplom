@@ -42,6 +42,22 @@ def _get_citi_page():
     return _citi_page
 
 
+def _reset_citi_page():
+    """Close and recreate the browser context (resets DNS cache and cookies)."""
+    global _citi_ctx, _citi_page
+    with _page_lock:
+        try:
+            if _citi_ctx:
+                _citi_ctx.close()
+        except Exception:
+            pass
+        _citi_ctx = None
+        _citi_page = None
+    logger.info("citilink: browser context reset, sleeping 30s before retry...")
+    time.sleep(30)
+    return _get_citi_page()
+
+
 # ── Поиск: список товаров со страницы поиска ─────────────────────────────────
 
 def _search_citilink(query: str, limit: int = 36) -> list[dict]:
@@ -379,6 +395,8 @@ def _run_parse(
             products = _search_citilink(query, limit=36)
         except Exception as e:
             logger.error("citilink search failed for query=%r: %s", query, e, exc_info=True)
+            if "ERR_NAME_NOT_RESOLVED" in str(e) or "ERR_CONNECTION_RESET" in str(e):
+                _reset_citi_page()
             continue
 
         for product in products:
@@ -461,14 +479,16 @@ def _run_parse(
                     db.commit()
                     added += 1
 
-                time.sleep(random.uniform(0.5, 1.2))
+                time.sleep(random.uniform(2.0, 4.0))
 
             except Exception as e:
                 logger.error("citilink product processing error: %s", e, exc_info=True)
                 failed += 1
                 db.rollback()
+                if "ERR_NAME_NOT_RESOLVED" in str(e) or "ERR_CONNECTION_RESET" in str(e):
+                    _reset_citi_page()
 
-        time.sleep(2)
+        time.sleep(random.uniform(8.0, 15.0))
 
     return {"added": added, "updated": updated, "failed": failed, "skipped": skipped}
 
