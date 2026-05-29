@@ -159,9 +159,15 @@ def _build_query(category: str, answers: dict, db: Session, model):
     elif category == "microphone":
         connection = answers.get("connection")
         if connection == "usb":
-            query = query.filter(model.connection_types.ilike("%usb%"))
+            query = query.filter(
+                model.interface.ilike("%usb%") |
+                model.connection_types.ilike("%usb%")
+            )
         elif connection == "xlr":
-            query = query.filter(model.connection_types.ilike("%xlr%"))
+            query = query.filter(
+                model.interface.ilike("%xlr%") |
+                model.connection_types.ilike("%xlr%")
+            )
 
     elif category == "mousepad":
         hardness = answers.get("hardness")
@@ -237,8 +243,10 @@ def _score(product, category: str, answers: dict) -> int:
     elif category == "microphone":
         if use_case == "streaming" and product.mic_type and "конденсаторный" in product.mic_type.lower():
             score += 2
-        if use_case == "calls" and product.connection_types and "usb" in product.connection_types.lower():
-            score += 2
+        if use_case == "calls":
+            iface = (product.interface or "") + " " + (product.connection_types or "")
+            if "usb" in iface.lower():
+                score += 2
 
     elif category == "mousepad":
         # БАГ 2 ИСПРАВЛЕН: RGB только если пользователь хотел подсветку
