@@ -80,6 +80,7 @@ def recommend(category: str, answers: dict, db: Session) -> list[dict]:
             "dns_url": p.dns_url,
             "wb_url": p.wb_url,
             "citilink_url": p.citilink_url,
+            "updated_at": p.updated_at,
         }
         for p, score in scored[:20]
     ]

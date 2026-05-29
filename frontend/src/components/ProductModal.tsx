@@ -56,6 +56,17 @@ function formatPrice(p: number | null | undefined) {
   return p.toLocaleString('ru-RU') + ' ₽'
 }
 
+function formatDate(dt: unknown): string | null {
+  if (!dt) return null
+  try {
+    return new Date(String(dt)).toLocaleDateString('ru-RU', {
+      day: 'numeric', month: 'long', year: 'numeric',
+    })
+  } catch {
+    return null
+  }
+}
+
 interface Props {
   item: Record<string, unknown>
   onClose: () => void
@@ -165,6 +176,16 @@ export default function ProductModal({ item, onClose }: Props) {
             </div>
           </div>
         )}
+
+        {/* Footer: data freshness */}
+        <div className="px-5 pb-4 border-t border-gray-100 pt-3">
+          <p className="text-xs text-gray-400 text-center">
+            {formatDate(item.updated_at)
+              ? `Данные обновлены: ${formatDate(item.updated_at)} · `
+              : ''}
+            Цены и наличие могут отличаться — проверяйте в магазине
+          </p>
+        </div>
       </div>
     </div>
   )

@@ -17,6 +17,12 @@ function formatPrice(p: number | null | undefined) {
   return p.toLocaleString('ru-RU') + ' ₽'
 }
 
+function isStale(updatedAt: string | null, days = 14): boolean {
+  if (!updatedAt) return false
+  const diff = Date.now() - new Date(updatedAt).getTime()
+  return diff > days * 24 * 60 * 60 * 1000
+}
+
 function ImageBox({ url, name }: { url: string | null; name: string }) {
   const [failed, setFailed] = useState(false)
 
@@ -52,7 +58,14 @@ function ProductCard({
       onClick={onClick}
       className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md hover:border-blue-300 transition-all flex flex-col cursor-pointer"
     >
-      <ImageBox url={item.image_url} name={item.name} />
+      <div className="relative">
+        <ImageBox url={item.image_url} name={item.name} />
+        {isStale(item.updated_at) && (
+          <div className="absolute top-2 left-2 bg-orange-100 text-orange-600 text-xs font-medium px-2 py-0.5 rounded-full border border-orange-200">
+            Уточните наличие
+          </div>
+        )}
+      </div>
       <div className="p-4 flex flex-col flex-1">
         {item.brand && (
           <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">{item.brand}</div>
@@ -155,6 +168,12 @@ export default function ResultsPage() {
           Изменить ответы
         </button>
       </div>
+
+      {results.length > 0 && (
+        <p className="text-xs text-gray-400 mb-4 -mt-2">
+          Цены и наличие актуальны на момент последней проверки. Уточняйте на сайте магазина.
+        </p>
+      )}
 
       {results.length === 0 ? (
         <div className="text-center py-16 text-gray-400">

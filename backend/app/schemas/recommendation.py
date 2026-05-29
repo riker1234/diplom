@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional
+from datetime import datetime
 
 
 class RecommendRequest(BaseModel):
@@ -21,6 +22,7 @@ class RecommendResultItem(BaseModel):
     dns_url: Optional[str] = None
     wb_url: Optional[str] = None
     citilink_url: Optional[str] = None
+    updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 

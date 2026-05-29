@@ -27,6 +27,7 @@ export interface RecommendResultItem {
   dns_url: string | null
   wb_url: string | null
   citilink_url: string | null
+  updated_at: string | null
 }
 
 export async function fetchQuestions(category: string): Promise<Question[]> {
