@@ -1,6 +1,7 @@
 import re
 import time
 import random
+import logging
 import threading
 from urllib.parse import quote
 from difflib import SequenceMatcher
@@ -12,6 +13,8 @@ from app.models.headphones import Headphones
 from app.models.microphone import Microphone
 from app.models.mousepad import Mousepad
 from app.parsers.browser import new_context
+
+logger = logging.getLogger(__name__)
 
 _page_lock = threading.Lock()
 _citi_ctx = None
@@ -27,12 +30,15 @@ def _get_citi_page():
                 return _citi_page
             except Exception:
                 pass
+        logger.info("citilink: creating new browser context...")
         _citi_ctx = new_context()
         _citi_page = _citi_ctx.new_page()
+        logger.info("citilink: navigating to homepage...")
         try:
             _citi_page.goto("https://www.citilink.ru/", wait_until="load", timeout=30000)
-        except Exception:
-            pass
+            logger.info("citilink: homepage loaded")
+        except Exception as e:
+            logger.warning("citilink: homepage load error (continuing): %s", e)
     return _citi_page
 
 
@@ -41,7 +47,9 @@ def _get_citi_page():
 def _search_citilink(query: str, limit: int = 36) -> list[dict]:
     page = _get_citi_page()
     url = f"https://www.citilink.ru/search/?text={quote(query)}"
+    logger.info("citilink search: %r -> %s", query, url)
     page.goto(url, wait_until="load", timeout=45000)
+    logger.info("citilink search: page loaded for %r", query)
     try:
         page.wait_for_selector("[data-meta-product-id]", timeout=10000)
     except Exception:
@@ -86,6 +94,7 @@ def _search_citilink(query: str, limit: int = 36) -> list[dict]:
         if pid and pid not in seen and c.get("href"):
             seen.add(pid)
             unique.append(c)
+    logger.info("citilink search: found %d products for %r", len(unique[:limit]), query)
     return unique[:limit]
 
 
@@ -94,7 +103,9 @@ def _search_citilink(query: str, limit: int = 36) -> list[dict]:
 def _get_properties(product_url: str) -> tuple[dict, float | None]:
     page = _get_citi_page()
     props_url = product_url.rstrip("/") + "/properties/"
+    logger.info("citilink props: %s", props_url)
     page.goto(props_url, wait_until="load", timeout=45000)
+    logger.info("citilink props: loaded")
     try:
         # Wait for the detailed spec groups (only appear after full load)
         page.wait_for_selector('[class*="PropertyGroupWrapper"]', timeout=12000)
@@ -366,7 +377,8 @@ def _run_parse(
     for query in queries:
         try:
             products = _search_citilink(query, limit=36)
-        except Exception:
+        except Exception as e:
+            logger.error("citilink search failed for query=%r: %s", query, e, exc_info=True)
             continue
 
         for product in products:
@@ -451,7 +463,8 @@ def _run_parse(
 
                 time.sleep(random.uniform(0.5, 1.2))
 
-            except Exception:
+            except Exception as e:
+                logger.error("citilink product processing error: %s", e, exc_info=True)
                 failed += 1
                 db.rollback()
 

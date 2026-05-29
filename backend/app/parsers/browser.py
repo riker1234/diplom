@@ -1,6 +1,9 @@
 import atexit
+import logging
 import threading
 from playwright.sync_api import sync_playwright, Browser, BrowserContext
+
+logger = logging.getLogger(__name__)
 
 _lock = threading.Lock()
 _pw = None
@@ -23,7 +26,9 @@ def _get_browser() -> Browser:
     global _pw, _browser
     with _lock:
         if _browser is None:
+            logger.info("browser.py: starting sync_playwright...")
             _pw = sync_playwright().start()
+            logger.info("browser.py: launching chromium...")
             _browser = _pw.chromium.launch(
                 headless=True,
                 args=[
@@ -32,6 +37,7 @@ def _get_browser() -> Browser:
                     "--disable-dev-shm-usage",
                 ],
             )
+            logger.info("browser.py: chromium launched OK")
             atexit.register(_shutdown)
     return _browser
 
