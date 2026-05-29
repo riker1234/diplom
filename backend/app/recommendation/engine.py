@@ -117,21 +117,20 @@ def _build_query(category: str, answers: dict, db: Session, model):
     elif category == "keyboard":
         form_factor = answers.get("form_factor")
         if form_factor == "full":
+            # полноразмерная: ~100% layout, с numpad
             query = query.filter(
                 model.form_factor.ilike("%полноразмерная%") |
-                model.form_factor.ilike("%full%") |
-                model.form_factor.ilike("%универсальная%") |
-                model.form_factor.ilike("%для правшей%")
+                model.form_factor.ilike("%full%")
             )
         elif form_factor == "tkl":
-            # covers "TKL", "компактная TKL (80%)", "80%", "без цифровой панели"
+            # TKL (80%): без numpad, но все остальные клавиши включая F-ряд
             query = query.filter(
                 model.form_factor.ilike("%tkl%") |
                 model.form_factor.ilike("%80%") |
                 model.form_factor.ilike("%без цифровой%")
             )
         elif form_factor == "compact":
-            # covers "компактная (60-65%)", "60%", "65%", "75%", "96%"
+            # compact (60-75%): без numpad и части функциональных клавиш
             query = query.filter(
                 model.form_factor.ilike("%компактная%") |
                 model.form_factor.ilike("%60%") |

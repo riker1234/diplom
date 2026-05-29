@@ -357,6 +357,39 @@ def _map_mousepad(props: dict) -> dict:
 
 # ── Матчинг по названию ───────────────────────────────────────────────────────
 
+# Слова, которые не являются брендом или моделью
+_STOP_WORDS = {
+    "мышь", "мыши", "клавиатура", "клавиатуры", "монитор", "наушники", "микрофон",
+    "коврик", "гарнитура", "проводная", "беспроводная", "игровая", "игровой",
+    "оптическая", "оптический", "механическая", "конденсаторный", "usb", "usb-c",
+    "rgb", "led", "wireless", "wired", "gaming", "pro", "для", "и", "с", "без",
+    "черный", "белый", "серый", "красный", "синий", "черная", "белая", "серебристый",
+}
+
+
+def _extract_model_tokens(name: str) -> set[str]:
+    """
+    Extract brand + model identifiers from product name.
+    Captures: brand names (start with uppercase) + model codes (contain digits).
+    Returns lowercase tokens.
+    """
+    name_clean = re.sub(r"[,/|;()%]", " ", name)
+    tokens = name_clean.split()
+    result = set()
+    for tok in tokens:
+        raw = tok.strip()
+        t = raw.lower()
+        if len(t) < 2 or t in _STOP_WORDS:
+            continue
+        # Brand: starts with uppercase original form and not a Russian word
+        if raw[0].isupper() and not re.search(r"[а-яё]", raw, re.IGNORECASE):
+            result.add(t)
+        # Model code: contains at least one digit
+        elif re.search(r"\d", t):
+            result.add(t)
+    return result
+
+
 def _name_similarity(a: str, b: str) -> float:
     a = re.sub(r"\s+", " ", a.lower().strip())
     b = re.sub(r"\s+", " ", b.lower().strip())
@@ -364,10 +397,73 @@ def _name_similarity(a: str, b: str) -> float:
 
 
 def _find_by_name(db, model_class, name: str, threshold: float = 0.82):
+    """
+    Match Citilink product to an existing DB record.
+
+    Strategy (in order of confidence):
+    1. Token overlap: brand + model codes must share ≥2 tokens — exact model identity.
+    2. Fuzzy fallback at high threshold (0.82) for names without clear model codes.
+    Only one candidate may survive; if multiple pass step 1, use fuzzy to pick best.
+    """
     candidates = db.query(model_class).filter(
         model_class.citilink_sku == None,
         model_class.name != None,
     ).all()
+    if not candidates:
+        return None
+
+    citi_tokens = _extract_model_tokens(name)
+
+    # Step 1: token-overlap matching (high confidence)
+    citi_model_codes = {t for t in citi_tokens if re.search(r"\d", t)}
+
+    scored = []
+    for row in candidates:
+        row_tokens = _extract_model_tokens(row.name or "")
+        shared = citi_tokens & row_tokens
+        if not shared:
+            continue
+
+        row_model_codes = {t for t in row_tokens if re.search(r"\d", t)}
+
+        # Conflicting model codes: one side has digit-codes the other doesn't share
+        # e.g. "G502 Hero" vs "G502 X": both have g502 but "hero" ≠ nothing/X
+        citi_only_codes = citi_model_codes - row_model_codes
+        row_only_codes  = row_model_codes  - citi_model_codes
+        has_conflict = bool(citi_only_codes) or bool(row_only_codes)
+
+        # Model code shared — counts double
+        model_overlap = citi_model_codes & row_model_codes
+        score = len(shared) + len(model_overlap)
+
+        # If there are conflicting model codes, disqualify immediately
+        if has_conflict:
+            continue
+
+        scored.append((score, row))
+
+    if scored:
+        scored.sort(key=lambda x: (
+            -x[0],
+            -_name_similarity(name, x[1].name or ""),
+        ))
+        best_score_val, best_row = scored[0]
+
+        has_model_code_match = bool(
+            citi_model_codes & _extract_model_tokens(best_row.name or "")
+        )
+        min_score = 2 if has_model_code_match else 3
+
+        if best_score_val < min_score:
+            pass  # fall through to fuzzy
+        elif len(scored) == 1 or scored[0][0] > scored[1][0]:
+            return best_row
+        else:
+            if _name_similarity(name, best_row.name or "") >= threshold:
+                return best_row
+            return None
+
+    # Step 2: fuzzy fallback (lower confidence, higher threshold)
     best_score, best_match = 0.0, None
     for row in candidates:
         score = _name_similarity(name, row.name or "")

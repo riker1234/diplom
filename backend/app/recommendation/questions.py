@@ -43,9 +43,9 @@ QUESTIONS: dict[str, list[dict]] = {
             "text": "Форм-фактор?",
             "type": "choice",
             "options": [
-                {"value": "full", "label": "Полноразмерная (Full)"},
-                {"value": "tkl", "label": "Без цифрового блока (TKL)"},
-                {"value": "compact", "label": "Компактная (60–75%)"},
+                {"value": "full", "label": "Полноразмерная — с цифровым блоком (100%)"},
+                {"value": "tkl", "label": "TKL — без цифрового блока, все F-клавиши (80%)"},
+                {"value": "compact", "label": "Компактная — без F-ряда или части клавиш (60–75%)"},
                 {"value": "any", "label": "Не важно"},
             ],
         },
