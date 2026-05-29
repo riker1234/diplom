@@ -116,11 +116,14 @@ def _build_query(category: str, answers: dict, db: Session, model):
     elif category == "keyboard":
         form_factor = answers.get("form_factor")
         if form_factor == "full":
-            query = query.filter(model.form_factor == "Full")
+            query = query.filter(model.form_factor.ilike("%полноразмерная%"))
         elif form_factor == "tkl":
-            query = query.filter(model.form_factor == "TKL")
+            query = query.filter(model.form_factor.ilike("%tkl%"))
         elif form_factor == "compact":
-            query = query.filter(model.form_factor.in_(["60%", "65%", "75%"]))
+            query = query.filter(
+                model.form_factor.ilike("%компактная%"),
+                ~model.form_factor.ilike("%tkl%"),
+            )
 
     elif category == "monitor":
         size = answers.get("size")
