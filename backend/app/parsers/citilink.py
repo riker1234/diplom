@@ -398,6 +398,10 @@ def _run_parse(
                     skipped += 1
                     continue
                 brand = chars.pop("brand", None)
+                if not brand and name:
+                    first = name.strip().split()[0]
+                    if len(first) > 1 and not re.match(r"^\d+$", first):
+                        brand = first
 
                 if required_fields and all(chars.get(f) is None for f in required_fields):
                     skipped += 1

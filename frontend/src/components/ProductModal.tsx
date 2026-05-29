@@ -12,7 +12,7 @@ const FIELD_LABELS: Record<string, string> = {
   sensor: 'Сенсор',
   weight_g: 'Вес, г',
   max_dpi: 'Макс. DPI',
-  buttons_count: 'Кол-во кнопок',
+  button_count: 'Кол-во кнопок',
   diagonal_inch: 'Диагональ, дюйм',
   refresh_rate_hz: 'Частота обновления, Гц',
   matrix_type: 'Тип матрицы',
