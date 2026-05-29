@@ -501,10 +501,12 @@ def _get_brand(product: dict, name: str = "") -> str:
                     text = item.get("text", {}).get("text", "").strip()
                     if text and not re.match(r"^\d+(\.\d+)?$", text) and not _PROMO_LABELS.search(text):
                         return text
-    # Fallback: first word of product name
+    # Fallback: first word of product name (skip numbers and Russian adjective-type words)
     if name:
         first = name.strip().split()[0]
-        if len(first) > 1 and not re.match(r"^\d+(\.\d+)?$", first):
+        if (len(first) > 1
+                and not re.match(r"^\d+(\.\d+)?$", first)
+                and not re.search(r"(ный|ной|вой|ской|ский|ная|ное)$", first, re.IGNORECASE)):
             return first
     return ""
 

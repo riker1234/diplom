@@ -575,7 +575,9 @@ def _run_parse(
             brand = product.get("brand", "")
             if not brand and name:
                 first = name.strip().split()[0]
-                if len(first) > 1 and not re.match(r"^\d+$", first):
+                if (len(first) > 1
+                        and not re.match(r"^\d+(\.\d+)?$", first)
+                        and not re.search(r"(ный|ной|вой|ской|ский|ная|ное)$", first, re.IGNORECASE)):
                     brand = first
             wb_price = _get_wb_price(product)
             wb_url = _get_wb_url(product)

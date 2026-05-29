@@ -33,9 +33,14 @@ const SKIP_FIELDS = new Set([
   'ozon_sku', 'wb_sku', 'dns_sku', 'citilink_sku', 'dns_product_id',
 ])
 
+// Russian adjective endings (конденсаторный, игровой, беспроводной, динамический...)
+const _ADJ_RE = /(ный|ной|вой|ской|ский|ная|ное)$/i
+
 function displayBrand(brand: unknown): string {
   const s = String(brand ?? '').trim()
-  if (!s || /^\d+(\.\d+)?$/.test(s) || s.toLowerCase() === 'оригинал') return 'Неизвестно'
+  if (!s || /^\d+(\.\d+)?$/.test(s)) return 'Неизвестно'
+  const lower = s.toLowerCase()
+  if (lower === 'оригинал' || _ADJ_RE.test(lower)) return 'Неизвестно'
   return s
 }
 

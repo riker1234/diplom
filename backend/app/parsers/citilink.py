@@ -404,7 +404,9 @@ def _run_parse(
                 brand = chars.pop("brand", None)
                 if not brand and name:
                     first = name.strip().split()[0]
-                    if len(first) > 1 and not re.match(r"^\d+$", first):
+                    if (len(first) > 1
+                            and not re.match(r"^\d+(\.\d+)?$", first)
+                            and not re.search(r"(ный|ной|вой|ской|ский|ная|ное)$", first, re.IGNORECASE)):
                         brand = first
 
                 if required_fields and all(chars.get(f) is None for f in required_fields):
