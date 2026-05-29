@@ -116,13 +116,30 @@ def _build_query(category: str, answers: dict, db: Session, model):
     elif category == "keyboard":
         form_factor = answers.get("form_factor")
         if form_factor == "full":
-            query = query.filter(model.form_factor.ilike("%полноразмерная%"))
-        elif form_factor == "tkl":
-            query = query.filter(model.form_factor.ilike("%tkl%"))
-        elif form_factor == "compact":
             query = query.filter(
-                model.form_factor.ilike("%компактная%"),
+                model.form_factor.ilike("%полноразмерная%") |
+                model.form_factor.ilike("%full%") |
+                model.form_factor.ilike("%универсальная%") |
+                model.form_factor.ilike("%для правшей%")
+            )
+        elif form_factor == "tkl":
+            # covers "TKL", "компактная TKL (80%)", "80%", "без цифровой панели"
+            query = query.filter(
+                model.form_factor.ilike("%tkl%") |
+                model.form_factor.ilike("%80%") |
+                model.form_factor.ilike("%без цифровой%")
+            )
+        elif form_factor == "compact":
+            # covers "компактная (60-65%)", "60%", "65%", "75%", "96%"
+            query = query.filter(
+                model.form_factor.ilike("%компактная%") |
+                model.form_factor.ilike("%60%") |
+                model.form_factor.ilike("%65%") |
+                model.form_factor.ilike("%75%") |
+                model.form_factor.ilike("%96%")
+            ).filter(
                 ~model.form_factor.ilike("%tkl%"),
+                ~model.form_factor.ilike("%80%"),
             )
 
     elif category == "monitor":
@@ -221,7 +238,10 @@ def _score(product, category: str, answers: dict) -> int:
             keywords = _SWITCH_KEYWORDS.get(switches_pref, [])
             if any(kw.lower() in product.switches.lower() for kw in keywords):
                 score += 3
-        if use_case == "gaming" and product.form_factor in ("TKL", "Full"):
+        if use_case == "gaming" and product.form_factor and any(
+            kw in product.form_factor.lower()
+            for kw in ("tkl", "полноразмерная", "full")
+        ):
             score += 1
 
     elif category == "monitor":
@@ -229,7 +249,7 @@ def _score(product, category: str, answers: dict) -> int:
             if product.refresh_rate_hz is not None and product.refresh_rate_hz >= 144:
                 score += 3
         elif use_case == "work":
-            if product.matrix_type and product.matrix_type.upper() == "IPS":
+            if product.matrix_type and "ips" in product.matrix_type.lower():
                 score += 3
             if product.refresh_rate_hz is not None and product.refresh_rate_hz >= 144:
                 score -= 3
