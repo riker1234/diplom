@@ -1,6 +1,8 @@
 import re
 import time
 import random
+import threading
+from urllib.parse import quote
 from difflib import SequenceMatcher
 from sqlalchemy.orm import Session
 from app.models.mouse import Mouse
@@ -9,87 +11,73 @@ from app.models.monitor import Monitor
 from app.models.headphones import Headphones
 from app.models.microphone import Microphone
 from app.models.mousepad import Mousepad
+from app.parsers.browser import new_context
 
-_driver = None
+_page_lock = threading.Lock()
+_citi_ctx = None
+_citi_page = None
 
 
-def _get_driver():
-    global _driver
-    if _driver is not None:
+def _get_citi_page():
+    global _citi_ctx, _citi_page
+    with _page_lock:
+        if _citi_page is not None:
+            try:
+                _ = _citi_page.url
+                return _citi_page
+            except Exception:
+                pass
+        _citi_ctx = new_context()
+        _citi_page = _citi_ctx.new_page()
         try:
-            _ = _driver.current_url
-            return _driver
+            _citi_page.goto("https://www.citilink.ru/", wait_until="load", timeout=30000)
         except Exception:
-            _driver = None
-
-    from selenium import webdriver
-    from selenium.webdriver.chrome.service import Service
-    from selenium.webdriver.chrome.options import Options
-    from selenium_stealth import stealth
-    from webdriver_manager.chrome import ChromeDriverManager
-
-    options = Options()
-    options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option("useAutomationExtension", False)
-    driver = webdriver.Chrome(
-        service=Service(ChromeDriverManager().install()),
-        options=options,
-    )
-    stealth(driver, languages=["ru-RU", "ru"], vendor="Google Inc.",
-            platform="Win32", webgl_vendor="Intel Inc.",
-            renderer="Intel Iris OpenGL Engine", fix_hairline=True)
-    driver.set_script_timeout(30)
-    driver.get("https://www.citilink.ru/")
-    time.sleep(5)
-    _driver = driver
-    return _driver
+            pass
+    return _citi_page
 
 
-# ── Поиск: получаем список товаров со страницы поиска ────────────────────────
+# ── Поиск: список товаров со страницы поиска ─────────────────────────────────
 
 def _search_citilink(query: str, limit: int = 36) -> list[dict]:
-    driver = _get_driver()
-    from urllib.parse import quote
+    page = _get_citi_page()
     url = f"https://www.citilink.ru/search/?text={quote(query)}"
-    driver.get(url)
-    time.sleep(5)
-    cards = driver.execute_script("""
-        var cards = document.querySelectorAll('[data-meta-product-id]');
-        var result = [];
-        for (var i = 0; i < cards.length; i++) {
-            var c = cards[i];
-            var a = c.querySelector('a[href*="/product/"]');
-            // Ищем название по нескольким вариантам классов
-            var nameSelectors = [
-                '[class*="title"]', '[class*="Title"]',
-                '[class*="name"]', '[class*="Name"]',
-                'a[href*="/product/"]'
-            ];
-            var name = '';
-            for (var s = 0; s < nameSelectors.length; s++) {
-                var el = c.querySelector(nameSelectors[s]);
-                if (el && el.innerText && el.innerText.trim().length > 5) {
-                    name = el.innerText.trim().split('\\n')[0];
-                    break;
+    page.goto(url, wait_until="load", timeout=45000)
+    try:
+        page.wait_for_selector("[data-meta-product-id]", timeout=10000)
+    except Exception:
+        pass
+
+    cards = page.evaluate("""
+        () => {
+            var cards = document.querySelectorAll('[data-meta-product-id]');
+            var result = [];
+            for (var i = 0; i < cards.length; i++) {
+                var c = cards[i];
+                var a = c.querySelector('a[href*="/product/"]');
+                if (!a) continue;
+                var name = a.getAttribute('title') || '';
+                if (!name) {
+                    var links = c.querySelectorAll('a[href*="/product/"]');
+                    for (var j = 0; j < links.length; j++) {
+                        var t = links[j].innerText.trim().split('\\n')[0];
+                        if (t.length > 5) { name = t; break; }
+                    }
                 }
+                var img = c.querySelector('img[src]');
+                var imgSrc = '';
+                if (img) {
+                    imgSrc = img.getAttribute('src') || img.getAttribute('data-src') || '';
+                    if (imgSrc.startsWith('//')) imgSrc = 'https:' + imgSrc;
+                }
+                result.push({
+                    id: c.getAttribute('data-meta-product-id'),
+                    href: a.href,
+                    name: name,
+                    image_url: imgSrc
+                });
             }
-            var img = c.querySelector('img[src]');
-            var imgSrc = '';
-            if (img) {
-                imgSrc = img.getAttribute('src') || img.getAttribute('data-src') || '';
-                if (imgSrc.startsWith('//')) imgSrc = 'https:' + imgSrc;
-            }
-            result.push({
-                id: c.getAttribute('data-meta-product-id'),
-                href: a ? a.href : '',
-                name: name,
-                image_url: imgSrc
-            });
+            return result;
         }
-        return result;
     """)
     seen = set()
     unique = []
@@ -101,55 +89,65 @@ def _search_citilink(query: str, limit: int = 36) -> list[dict]:
     return unique[:limit]
 
 
-# ── Характеристики: открываем /properties/ в Selenium ────────────────────────
+# ── Характеристики товара ─────────────────────────────────────────────────────
 
 def _get_properties(product_url: str) -> tuple[dict, float | None]:
-    """Возвращает (словарь характеристик, цена)."""
-    driver = _get_driver()
+    page = _get_citi_page()
     props_url = product_url.rstrip("/") + "/properties/"
-    driver.get(props_url)
-    time.sleep(4)
+    page.goto(props_url, wait_until="load", timeout=45000)
+    try:
+        page.wait_for_selector('[class*="Properties"]', timeout=10000)
+        # wait for full spec table (>10 rows means detailed view loaded)
+        page.wait_for_function(
+            "() => document.querySelectorAll('[class*=\"Properties\"]').length > 10",
+            timeout=8000,
+        )
+    except Exception:
+        pass
 
-    data = driver.execute_script("""
-        var result = {};
-        var items = document.querySelectorAll('[class*="Properties"]');
-        items.forEach(function(el) {
-            var children = el.children;
-            if (children.length >= 2) {
-                var name = children[0].innerText.trim().replace(/:$/, '');
-                var val  = children[1].innerText.trim();
-                if (name && val && name.length < 80) {
-                    result[name] = val;
+    data = page.evaluate("""
+        () => {
+            var result = {};
+            var items = document.querySelectorAll('[class*="Properties"]');
+            items.forEach(function(el) {
+                var children = el.children;
+                if (children.length >= 2) {
+                    var name = children[0].innerText.trim().replace(/:$/, '');
+                    var val  = children[1].innerText.trim();
+                    if (name && val && name.length < 80) {
+                        result[name] = val;
+                    }
                 }
-            }
-        });
-        return result;
+            });
+            return result;
+        }
     """)
 
-    price_raw = driver.execute_script("""
-        var selectors = [
-            '[class*="Price__price"]',
-            '[class*="price__price"]',
-            '[data-meta-name="Price"]',
-            '[class*="ProductHeader__price"]',
-            '[class*="productHeader__price"]',
-        ];
-        for (var i = 0; i < selectors.length; i++) {
-            var el = document.querySelector(selectors[i]);
-            if (el && el.innerText.trim()) return el.innerText.trim();
-        }
-        // Ищем любой элемент с ₽
-        var all = document.querySelectorAll('*');
-        for (var i = 0; i < all.length; i++) {
-            var t = all[i].childNodes;
-            for (var j = 0; j < t.length; j++) {
-                if (t[j].nodeType === 3 && t[j].textContent.includes('₽')) {
-                    var txt = t[j].textContent.trim();
-                    if (/^\\d[\\d\\s]*₽/.test(txt)) return txt;
+    price_raw = page.evaluate("""
+        () => {
+            var selectors = [
+                '[class*="Price__price"]',
+                '[class*="price__price"]',
+                '[data-meta-name="Price"]',
+                '[class*="ProductHeader__price"]',
+                '[class*="productHeader__price"]',
+            ];
+            for (var i = 0; i < selectors.length; i++) {
+                var el = document.querySelector(selectors[i]);
+                if (el && el.innerText.trim()) return el.innerText.trim();
+            }
+            var all = document.querySelectorAll('*');
+            for (var i = 0; i < all.length; i++) {
+                var t = all[i].childNodes;
+                for (var j = 0; j < t.length; j++) {
+                    if (t[j].nodeType === 3 && t[j].textContent.includes('\\u20bd')) {
+                        var txt = t[j].textContent.trim();
+                        if (/^\\d[\\d\\s]*\\u20bd/.test(txt)) return txt;
+                    }
                 }
             }
+            return null;
         }
-        return null;
     """)
     price = None
     if price_raw:
@@ -206,8 +204,6 @@ def _map_mouse(props: dict) -> dict:
             max_dpi = _parse_int(max_dpi_str)
 
     has_rgb_str = _get(props, "Подсветка", "Тип подсветки")
-    # Ситилинк хранит в поле "Сенсор" DPI-спецификацию ("3600 dpi, ускорение 8 G"),
-    # а не название чипа — отбрасываем такие значения.
     sensor_raw = _get(props, "Сенсор")
     sensor = None if (sensor_raw and re.search(r'\d.*dpi', sensor_raw, re.IGNORECASE)) else sensor_raw
     return {
@@ -368,7 +364,7 @@ def _run_parse(
     for query in queries:
         try:
             products = _search_citilink(query, limit=36)
-        except Exception as e:
+        except Exception:
             continue
 
         for product in products:
@@ -382,7 +378,6 @@ def _run_parse(
                 if not href:
                     continue
 
-                # Убираем /properties/ если случайно попало
                 base_url = re.sub(r"/properties/?$", "", href).rstrip("/") + "/"
                 citilink_url = base_url
 
@@ -394,9 +389,8 @@ def _run_parse(
                 chars = char_mapper(props)
                 name = product.get("name") or ""
                 if not name:
-                    # Берём из заголовка страницы если карточка не дала названия
-                    name = _get_driver().execute_script(
-                        "var h = document.querySelector('h1'); return h ? h.innerText : '';"
+                    name = _get_citi_page().evaluate(
+                        "() => { var h = document.querySelector('h1'); return h ? h.innerText : ''; }"
                     ) or citilink_sku
                 if exclude_name_kw and any(kw.lower() in name.lower() for kw in exclude_name_kw):
                     skipped += 1
@@ -413,7 +407,6 @@ def _run_parse(
                     skipped += 1
                     continue
 
-                # Проверяем — уже есть по SKU
                 existing = db.query(model_class).filter(
                     model_class.citilink_sku == citilink_sku
                 ).first()
@@ -428,7 +421,6 @@ def _run_parse(
 
                 image_url = product.get("image_url") or None
 
-                # Ищем по названию среди уже существующих записей
                 matched = _find_by_name(db, model_class, name)
                 if matched:
                     matched.citilink_sku = citilink_sku

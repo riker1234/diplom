@@ -1,8 +1,8 @@
 import re
-import json
 import time
 import random
-import requests
+import threading
+from urllib.parse import quote
 from difflib import SequenceMatcher
 from sqlalchemy.orm import Session
 from app.models.mouse import Mouse
@@ -11,17 +11,32 @@ from app.models.monitor import Monitor
 from app.models.headphones import Headphones
 from app.models.microphone import Microphone
 from app.models.mousepad import Mousepad
+from app.parsers.browser import new_context
 
 _BASE = "https://www.dns-shop.ru"
-_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-    ),
-    "Accept": "application/json, text/html, */*",
-    "Accept-Language": "ru-RU,ru;q=0.9",
-    "Referer": "https://www.dns-shop.ru/",
-}
+
+_page_lock = threading.Lock()
+_dns_ctx = None
+_dns_page = None
+
+
+def _get_dns_page():
+    global _dns_ctx, _dns_page
+    with _page_lock:
+        if _dns_page is not None:
+            try:
+                _ = _dns_page.url
+                return _dns_page
+            except Exception:
+                pass
+        _dns_ctx = new_context()
+        _dns_page = _dns_ctx.new_page()
+        try:
+            _dns_page.goto(_BASE, wait_until="domcontentloaded", timeout=30000)
+        except Exception:
+            pass
+    return _dns_page
+
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -45,41 +60,24 @@ def _name_similarity(a: str, b: str) -> float:
     return SequenceMatcher(None, a, b).ratio()
 
 
-# ── DNS search API ─────────────────────────────────────────────────────────────
+# ── DNS search via Playwright ──────────────────────────────────────────────────
 
 def _search_dns(query: str, limit: int = 8) -> list[dict]:
-    """Поиск товаров через DNS API."""
     results = []
-    page = 1
+    page_num = 1
+    page = _get_dns_page()
     while len(results) < limit:
         try:
-            url = f"{_BASE}/search/?"
-            params = {
-                "q": query,
-                "p": page,
-            }
-            resp = requests.get(
-                f"{_BASE}/search/",
-                params={"q": query, "p": page},
-                headers=_HEADERS,
-                timeout=15,
-            )
-            if resp.status_code != 200:
+            url = f"{_BASE}/search/?q={quote(query)}&p={page_num}"
+            page.goto(url, wait_until="networkidle", timeout=30000)
+            data = page.evaluate("() => window.__NEXT_DATA__ || null")
+            if not data:
                 break
-
-            # DNS возвращает HTML — ищем JSON в __NEXT_DATA__
-            html = resp.text
-            match = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
-            if not match:
-                break
-
-            data = json.loads(match.group(1))
-            # структура может быть в разных местах
             products = _extract_dns_products(data)
             if not products:
                 break
             results.extend(products)
-            page += 1
+            page_num += 1
             time.sleep(random.uniform(0.5, 1.0))
         except Exception:
             break
@@ -87,16 +85,9 @@ def _search_dns(query: str, limit: int = 8) -> list[dict]:
 
 
 def _extract_dns_products(data: dict) -> list[dict]:
-    """Извлекает список товаров из __NEXT_DATA__ DNS."""
     try:
-        # типичный путь в DNS Next.js
         props = data.get("props", {}).get("initialState", {})
-        # пробуем разные пути
-        for path in [
-            ["search", "products"],
-            ["catalog", "products"],
-            ["products"],
-        ]:
+        for path in [["search", "products"], ["catalog", "products"], ["products"]]:
             node = props
             for key in path:
                 node = node.get(key, {}) if isinstance(node, dict) else {}
@@ -108,30 +99,22 @@ def _extract_dns_products(data: dict) -> list[dict]:
 
 
 def _get_dns_characteristics(product_url: str) -> list[dict]:
-    """Получает характеристики товара со страницы /characteristics/."""
+    page = _get_dns_page()
     try:
         url = product_url.rstrip("/") + "/characteristics/"
-        resp = requests.get(url, headers=_HEADERS, timeout=15)
-        if resp.status_code != 200:
+        page.goto(url, wait_until="networkidle", timeout=30000)
+        data = page.evaluate("() => window.__NEXT_DATA__ || null")
+        if not data:
             return []
-
-        html = resp.text
-        match = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
-        if not match:
-            return []
-
-        data = json.loads(match.group(1))
         return _extract_dns_chars(data)
     except Exception:
         return []
 
 
 def _extract_dns_chars(data: dict) -> list[dict]:
-    """Извлекает список {name, value} из __NEXT_DATA__ DNS."""
     flat = []
     try:
         props = data.get("props", {}).get("initialState", {})
-        # DNS хранит характеристики в product.characteristics или product.properties
         product = (
             props.get("product", {})
             or props.get("productCard", {}).get("product", {})
@@ -360,7 +343,7 @@ def _run_dns_parse(
     query: str,
     model_class,
     char_mapper,
-    dns_product_to_dict,
+    dns_product_to_dict=None,
     required_fields: list[str] | None = None,
     limit: int = 8,
 ) -> dict:
@@ -388,10 +371,8 @@ def _run_dns_parse(
 
             chars = char_mapper(_get_dns_characteristics(product_url))
 
-            # Ищем совпадение в БД
             existing = db.query(model_class).filter(model_class.dns_sku == dns_sku).first()
             if existing:
-                # Уже есть по DNS SKU — обновляем цену и характеристики
                 existing.dns_price = dns_price
                 for field, value in chars.items():
                     if value is not None:
@@ -400,7 +381,6 @@ def _run_dns_parse(
                 updated += 1
                 continue
 
-            # Ищем по названию среди Ozon-записей
             matched = _find_by_name(db, model_class, name, brand)
             if matched:
                 matched.dns_sku = dns_sku
@@ -412,7 +392,6 @@ def _run_dns_parse(
                 db.commit()
                 updated += 1
             else:
-                # Новый товар только с DNS
                 if required_fields and all(chars.get(f) is None for f in required_fields):
                     skipped += 1
                     continue
@@ -435,7 +414,6 @@ def _run_dns_parse(
 
 
 def _find_by_name(db, model_class, name: str, brand: str, threshold: float = 0.82):
-    """Ищет запись в БД с похожим названием."""
     candidates = db.query(model_class).filter(
         model_class.dns_sku == None,
         model_class.name != None,
