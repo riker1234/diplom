@@ -15,6 +15,7 @@ class Keyboard(Base, TimestampMixin):
     keycap_material = Column(String)
     keycap_manufacturing = Column(String)
     connection_types = Column(String)
+    interface = Column(String, nullable=True)
     has_rgb = Column(Boolean, default=False)
     layout = Column(String)
     key_count = Column(Integer)

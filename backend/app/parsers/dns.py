@@ -156,7 +156,8 @@ def _extract_dns_chars(data: dict) -> list[dict]:
 
 _DNS_MOUSE_KEYS = {
     "weight":           {"вес", "вес устройства"},
-    "connection_types": {"тип подключения", "интерфейс"},
+    "connection_types": {"тип подключения"},
+    "interface":        {"интерфейс"},
     "sensor":           {"тип сенсора", "сенсор", "оптический сенсор"},
     "switches":         {"тип переключателей", "переключатели"},
     "button_count":     {"количество кнопок"},
@@ -172,7 +173,8 @@ _DNS_KEYBOARD_KEYS = {
     "board_material":       {"материал корпуса"},
     "keycap_material":      {"материал клавиш"},
     "keycap_manufacturing": {"нанесение символов"},
-    "connection_types":     {"тип подключения", "интерфейс"},
+    "connection_types":     {"тип подключения"},
+    "interface":            {"интерфейс"},
     "has_rgb":              {"подсветка"},
     "layout":               {"раскладка"},
     "key_count":            {"количество клавиш"},
@@ -192,7 +194,8 @@ _DNS_MONITOR_KEYS = {
 
 _DNS_HEADPHONES_KEYS = {
     "construction_type":  {"конструкция", "тип"},
-    "connection_types":   {"тип подключения", "интерфейс"},
+    "connection_types":   {"тип подключения"},
+    "interface":          {"интерфейс"},
     "has_microphone":     {"микрофон", "наличие микрофона"},
     "noise_cancellation": {"шумоподавление"},
     "freq_min":           {"минимальная частота"},
@@ -205,7 +208,8 @@ _DNS_HEADPHONES_KEYS = {
 _DNS_MICROPHONE_KEYS = {
     "mic_type":         {"тип микрофона", "тип капсюля"},
     "directionality":   {"направленность", "диаграмма направленности"},
-    "connection_types": {"тип подключения", "интерфейс"},
+    "connection_types": {"тип подключения"},
+    "interface":        {"интерфейс"},
     "frequency_range":  {"диапазон частот"},
     "sample_rate":      {"частота дискретизации"},
     "bit_depth":        {"разрядность"},
@@ -248,6 +252,7 @@ def _map_mouse_dns(options: list[dict]) -> dict:
     return {
         "weight_g":         weight_g,
         "connection_types": raw.get("connection_types"),
+        "interface":        raw.get("interface"),
         "sensor":           raw.get("sensor"),
         "switches":         raw.get("switches"),
         "button_count":     _parse_int(button_str) if button_str else None,
@@ -269,6 +274,7 @@ def _map_keyboard_dns(options: list[dict]) -> dict:
         "keycap_material":      raw.get("keycap_material"),
         "keycap_manufacturing": raw.get("keycap_manufacturing"),
         "connection_types":     raw.get("connection_types"),
+        "interface":            raw.get("interface"),
         "has_rgb":              _parse_bool(has_rgb_str) if has_rgb_str else False,
         "layout":               raw.get("layout"),
         "key_count":            _parse_int(key_count_str) if key_count_str else None,
@@ -309,6 +315,7 @@ def _map_headphones_dns(options: list[dict]) -> dict:
     return {
         "construction_type":  raw.get("construction_type"),
         "connection_types":   raw.get("connection_types"),
+        "interface":          raw.get("interface"),
         "has_microphone":     _parse_bool(has_mic_str) if has_mic_str else False,
         "noise_cancellation": raw.get("noise_cancellation"),
         "frequency_response": frequency_response,
@@ -324,6 +331,7 @@ def _map_microphone_dns(options: list[dict]) -> dict:
         "mic_type":         raw.get("mic_type"),
         "directionality":   raw.get("directionality"),
         "connection_types": raw.get("connection_types"),
+        "interface":        raw.get("interface"),
         "frequency_range":  raw.get("frequency_range"),
         "sample_rate":      raw.get("sample_rate"),
         "bit_depth":        raw.get("bit_depth"),

@@ -12,6 +12,7 @@ class KeyboardResponse(BaseModel):
     keycap_material: Optional[str] = None
     keycap_manufacturing: Optional[str] = None
     connection_types: Optional[str] = None
+    interface: Optional[str] = None
     price: Optional[float] = None
     wb_price: Optional[float] = None
     citilink_price: Optional[float] = None

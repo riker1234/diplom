@@ -8,6 +8,7 @@ class HeadphonesResponse(BaseModel):
     brand: Optional[str] = None
     construction_type: Optional[str] = None
     connection_types: Optional[str] = None
+    interface: Optional[str] = None
     has_microphone: Optional[bool] = None
     noise_cancellation: Optional[str] = None
     price: Optional[float] = None

@@ -9,6 +9,7 @@ class MicrophoneResponse(BaseModel):
     mic_type: Optional[str] = None
     directionality: Optional[str] = None
     connection_types: Optional[str] = None
+    interface: Optional[str] = None
     frequency_range: Optional[str] = None
     price: Optional[float] = None
     wb_price: Optional[float] = None

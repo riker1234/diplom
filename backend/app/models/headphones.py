@@ -10,6 +10,7 @@ class Headphones(Base, TimestampMixin):
     brand = Column(String)
     construction_type = Column(String)
     connection_types = Column(String)
+    interface = Column(String, nullable=True)
     has_microphone = Column(Boolean, default=False)
     noise_cancellation = Column(String)
     frequency_response = Column(String)

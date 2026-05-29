@@ -11,6 +11,7 @@ class Microphone(Base, TimestampMixin):
     mic_type = Column(String)
     directionality = Column(String)
     connection_types = Column(String)
+    interface = Column(String, nullable=True)
     frequency_range = Column(String)
     sample_rate = Column(String)
     bit_depth = Column(String)
