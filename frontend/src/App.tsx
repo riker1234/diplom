@@ -3,6 +3,7 @@ import HomePage from './pages/HomePage'
 import QuizPage from './pages/QuizPage'
 import ResultsPage from './pages/ResultsPage'
 import CatalogPage from './pages/CatalogPage'
+import SetupPage from './pages/SetupPage'
 
 function Navbar() {
   const location = useLocation()
@@ -21,6 +22,7 @@ function Navbar() {
         </Link>
         <div className="flex gap-6">
           <Link to="/" className={linkClass('/')}>Подбор</Link>
+          <Link to="/setup" className={linkClass('/setup')}>Комплект</Link>
           <Link to="/catalog" className={linkClass('/catalog')}>Каталог</Link>
         </div>
       </div>
@@ -46,6 +48,7 @@ export default function App() {
           <Route path="/quiz/:category" element={<QuizPage />} />
           <Route path="/results" element={<ResultsPage />} />
           <Route path="/catalog" element={<CatalogPage />} />
+          <Route path="/setup" element={<SetupPage />} />
         </Routes>
       </Layout>
     </BrowserRouter>

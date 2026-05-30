@@ -123,11 +123,11 @@ def _get_properties(product_url: str) -> tuple[dict, float | None]:
     page.goto(props_url, wait_until="load", timeout=45000)
     logger.info("citilink props: loaded")
     try:
-        # Wait for the detailed spec groups (only appear after full load)
-        page.wait_for_selector('[class*="PropertyGroupWrapper"]', timeout=12000)
+        # Wait for the detailed spec groups (appear after JS renders)
+        page.wait_for_selector('[class*="PropertyGroupWrapper"]', timeout=15000)
     except Exception:
         try:
-            page.wait_for_selector('[class*="PropertiesItem"]', timeout=5000)
+            page.wait_for_selector('[class*="PropertiesItem"]', timeout=8000)
         except Exception:
             pass
 
@@ -152,27 +152,49 @@ def _get_properties(product_url: str) -> tuple[dict, float | None]:
         }
     """)
 
+    # Detect out-of-stock: check only the buy-block / product-header area,
+    # NOT the whole body (avoids false positives from "similar products" widgets)
+    is_oos = page.evaluate("""
+        () => {
+            var selectors = [
+                '[class*="buy-block"]',
+                '[class*="BuyBlock"]',
+                '[class*="ProductHeader"]',
+                '[class*="productHeader"]',
+                '[class*="ProductAvailability"]',
+                '[class*="CardAvailability"]',
+            ];
+            for (var i = 0; i < selectors.length; i++) {
+                var el = document.querySelector(selectors[i]);
+                if (el && el.innerText.includes('Нет в наличии')) return true;
+            }
+            return false;
+        }
+    """)
+    if is_oos:
+        logger.info("citilink props: out of stock")
+        result = data if isinstance(data, dict) else {}
+        result["__oos__"] = True
+        return (result, None)
+
     price_raw = page.evaluate("""
         () => {
+            // Only specific header/buy-block selectors — no full-page text scan
+            // to avoid grabbing prices from recommendation widgets or banners
             var selectors = [
                 '[class*="Price__price"]',
                 '[class*="price__price"]',
                 '[data-meta-name="Price"]',
                 '[class*="ProductHeader__price"]',
                 '[class*="productHeader__price"]',
+                '[class*="buy-block"] [class*="price"]',
+                '[class*="BuyBlock"] [class*="price"]',
             ];
             for (var i = 0; i < selectors.length; i++) {
                 var el = document.querySelector(selectors[i]);
-                if (el && el.innerText.trim()) return el.innerText.trim();
-            }
-            var all = document.querySelectorAll('*');
-            for (var i = 0; i < all.length; i++) {
-                var t = all[i].childNodes;
-                for (var j = 0; j < t.length; j++) {
-                    if (t[j].nodeType === 3 && t[j].textContent.includes('\\u20bd')) {
-                        var txt = t[j].textContent.trim();
-                        if (/^\\d[\\d\\s]*\\u20bd/.test(txt)) return txt;
-                    }
+                if (el) {
+                    var txt = el.innerText.trim();
+                    if (txt && /\\d/.test(txt)) return txt;
                 }
             }
             return null;
@@ -182,7 +204,10 @@ def _get_properties(product_url: str) -> tuple[dict, float | None]:
     if price_raw:
         m = re.search(r"[\d\s]+", price_raw.replace("\xa0", ""))
         if m:
-            price = float(re.sub(r"\s+", "", m.group()))
+            candidate = float(re.sub(r"\s+", "", m.group()))
+            # Sanity check: ignore obviously wrong prices (too low for any peripheral)
+            if candidate >= 200:
+                price = candidate
 
     return (data or {}, price)
 
@@ -426,32 +451,35 @@ def _find_by_name(db, model_class, name: str, threshold: float = 0.82):
 
         row_model_codes = {t for t in row_tokens if re.search(r"\d", t)}
 
-        # Conflicting model codes: one side has digit-codes the other doesn't share
-        # e.g. "G502 Hero" vs "G502 X": both have g502 but "hero" ≠ nothing/X
+        # Conflicting digit-codes: e.g. "G502 Hero" vs "G403"
         citi_only_codes = citi_model_codes - row_model_codes
         row_only_codes  = row_model_codes  - citi_model_codes
-        has_conflict = bool(citi_only_codes) or bool(row_only_codes)
+        has_digit_conflict = bool(citi_only_codes) or bool(row_only_codes)
+
+        # Conflicting non-digit variant tokens: e.g. "G502 Hero" vs "G502 X"
+        # "Hero" ∈ citi_tokens only, "X" ∈ row_tokens only → different variants
+        citi_only_noncodes = (citi_tokens - citi_model_codes) - row_tokens
+        row_only_noncodes  = (row_tokens  - row_model_codes)  - citi_tokens
+        has_variant_conflict = bool(citi_only_noncodes) and bool(row_only_noncodes)
+
+        if has_digit_conflict or has_variant_conflict:
+            continue
 
         # Model code shared — counts double
         model_overlap = citi_model_codes & row_model_codes
         score = len(shared) + len(model_overlap)
 
-        # If there are conflicting model codes, disqualify immediately
-        if has_conflict:
-            continue
-
-        scored.append((score, row))
+        scored.append((score, row, row_tokens))
 
     if scored:
         scored.sort(key=lambda x: (
             -x[0],
             -_name_similarity(name, x[1].name or ""),
         ))
-        best_score_val, best_row = scored[0]
+        best_score_val, best_row, best_row_tokens = scored[0]
 
-        has_model_code_match = bool(
-            citi_model_codes & _extract_model_tokens(best_row.name or "")
-        )
+        best_row_model_codes = {t for t in best_row_tokens if re.search(r"\d", t)}
+        has_model_code_match = bool(citi_model_codes & best_row_model_codes)
         min_score = 2 if has_model_code_match else 3
 
         if best_score_val < min_score:
@@ -514,6 +542,20 @@ def _run_parse(
                     skipped += 1
                     continue
 
+                is_oos = props.pop("__oos__", False)
+
+                # If out of stock on Citilink: clear the stored price and skip
+                if is_oos:
+                    existing_oos = db.query(model_class).filter(
+                        model_class.citilink_sku == citilink_sku
+                    ).first()
+                    if existing_oos and existing_oos.citilink_price is not None:
+                        existing_oos.citilink_price = None
+                        db.commit()
+                        logger.info("citilink: cleared OOS price for %s", existing_oos.name)
+                    skipped += 1
+                    continue
+
                 chars = char_mapper(props)
                 name = product.get("name") or ""
                 if not name:
@@ -566,7 +608,7 @@ def _run_parse(
                     db.add(model_class(
                         name=name,
                         brand=brand,
-                        price=citilink_price,
+                        # price (Ozon) stays NULL — only citilink_price is set
                         citilink_sku=citilink_sku,
                         citilink_url=citilink_url,
                         citilink_price=citilink_price,
@@ -596,7 +638,8 @@ def parse_mice(db: Session) -> dict:
     return _run_parse(db, [
         "игровая мышь", "мышь logitech игровая", "мышь razer",
         "мышь беспроводная игровая", "мышь steelseries",
-    ], Mouse, _map_mouse, required_fields=["connection_types"])
+    ], Mouse, _map_mouse, required_fields=["connection_types"],
+    exclude_name_kw=["коврик", "пантограф", "держатель", "клавиатур", "гарнитур"])
 
 
 def parse_keyboards(db: Session) -> dict:
@@ -625,7 +668,9 @@ def parse_microphones(db: Session) -> dict:
         "usb микрофон конденсаторный", "микрофон стриминговый",
         "микрофон hyperx",
     ], Microphone, _map_microphone, required_fields=["mic_type"],
-    exclude_name_kw=["съёмный", "сменный", "для гарнитур", "для наушник"])
+    exclude_name_kw=["съёмный", "сменный", "для гарнитур", "для наушник",
+                     "пантограф", "держатель для микрофона", "стойка для микрофона",
+                     "кронштейн для микрофона", "поп-фильтр", "ветрозащит"])
 
 
 def parse_mousepads(db: Session) -> dict:

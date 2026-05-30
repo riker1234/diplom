@@ -11,6 +11,8 @@ class MicrophoneResponse(BaseModel):
     connection_types: Optional[str] = None
     interface: Optional[str] = None
     frequency_range: Optional[str] = None
+    sample_rate: Optional[str] = None
+    bit_depth: Optional[str] = None
     price: Optional[float] = None
     wb_price: Optional[float] = None
     citilink_price: Optional[float] = None

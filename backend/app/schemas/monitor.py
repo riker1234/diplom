@@ -10,6 +10,10 @@ class MonitorResponse(BaseModel):
     resolution: Optional[str] = None
     refresh_rate_hz: Optional[int] = None
     matrix_type: Optional[str] = None
+    response_time_ms: Optional[float] = None
+    brightness_nits: Optional[int] = None
+    hdr: Optional[bool] = None
+    color: Optional[str] = None
     price: Optional[float] = None
     wb_price: Optional[float] = None
     citilink_price: Optional[float] = None

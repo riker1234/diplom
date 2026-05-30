@@ -11,6 +11,10 @@ class HeadphonesResponse(BaseModel):
     interface: Optional[str] = None
     has_microphone: Optional[bool] = None
     noise_cancellation: Optional[str] = None
+    impedance_ohm: Optional[int] = None
+    frequency_response: Optional[str] = None
+    has_rgb: Optional[bool] = None
+    color: Optional[str] = None
     price: Optional[float] = None
     wb_price: Optional[float] = None
     citilink_price: Optional[float] = None

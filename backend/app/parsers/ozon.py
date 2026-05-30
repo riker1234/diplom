@@ -515,14 +515,21 @@ def _get_price(product: dict) -> float:
     for state in product.get("mainState", []):
         if state.get("type") == "priceV2":
             price_list = state.get("priceV2", {}).get("price", [])
+            # Ozon может вернуть несколько PRICE-записей в одном блоке:
+            # первая — цена со скидкой банковской карты (самая низкая),
+            # последняя — базовая цена без бонуса карты.
+            # Берём максимальную, чтобы показывать цену, доступную всем.
+            collected = []
             for p in price_list:
                 if p.get("textStyle") == "PRICE":
                     raw = re.sub(r"[^\d]", "", p.get("text", ""))
                     if raw:
                         try:
-                            return float(raw)
+                            collected.append(float(raw))
                         except ValueError:
                             pass
+            if collected:
+                return max(collected)
     return 0.0
 
 

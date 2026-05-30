@@ -1,3 +1,14 @@
+_PRIORITY_QUESTION = {
+    "id": "priority",
+    "text": "Что важнее при выборе?",
+    "type": "choice",
+    "options": [
+        {"value": "budget", "label": "Цена — главное, хочу сэкономить"},
+        {"value": "balance", "label": "Баланс цены и качества"},
+        {"value": "flagship", "label": "Только лучшее в своём классе"},
+    ],
+}
+
 QUESTIONS: dict[str, list[dict]] = {
     "mouse": [
         {
@@ -20,6 +31,7 @@ QUESTIONS: dict[str, list[dict]] = {
                 {"value": "any", "label": "Не важно"},
             ],
         },
+        _PRIORITY_QUESTION,
         {
             "id": "budget",
             "text": "Максимальный бюджет (₽)?",
@@ -61,6 +73,7 @@ QUESTIONS: dict[str, list[dict]] = {
                 {"value": "any", "label": "Не важно"},
             ],
         },
+        _PRIORITY_QUESTION,
         {
             "id": "budget",
             "text": "Максимальный бюджет (₽)?",
@@ -90,6 +103,7 @@ QUESTIONS: dict[str, list[dict]] = {
                 {"value": "any", "label": "Не важно"},
             ],
         },
+        _PRIORITY_QUESTION,
         {
             "id": "budget",
             "text": "Максимальный бюджет (₽)?",
@@ -129,6 +143,7 @@ QUESTIONS: dict[str, list[dict]] = {
                 {"value": "any", "label": "Не важно"},
             ],
         },
+        _PRIORITY_QUESTION,
         {
             "id": "budget",
             "text": "Максимальный бюджет (₽)?",
@@ -158,6 +173,7 @@ QUESTIONS: dict[str, list[dict]] = {
                 {"value": "any", "label": "Не важно"},
             ],
         },
+        _PRIORITY_QUESTION,
         {
             "id": "budget",
             "text": "Максимальный бюджет (₽)?",
@@ -196,6 +212,7 @@ QUESTIONS: dict[str, list[dict]] = {
                 {"value": "any", "label": "Не важно"},
             ],
         },
+        _PRIORITY_QUESTION,
         {
             "id": "budget",
             "text": "Максимальный бюджет (₽)?",

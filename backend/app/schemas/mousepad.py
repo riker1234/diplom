@@ -9,7 +9,9 @@ class MousepadResponse(BaseModel):
     size: Optional[str] = None
     surface_material: Optional[str] = None
     hardness: Optional[str] = None
+    thickness_mm: Optional[float] = None
     has_rgb: Optional[bool] = None
+    color: Optional[str] = None
     price: Optional[float] = None
     wb_price: Optional[float] = None
     citilink_price: Optional[float] = None

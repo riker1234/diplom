@@ -10,6 +10,7 @@ logging.basicConfig(
 from app.routers import mice, keyboards, mousepads, monitors, microphones, headphones
 from app.routers import recommendation
 from app.routers import admin
+from app.routers import setup
 
 
 @asynccontextmanager
@@ -37,6 +38,7 @@ app.include_router(monitors.router)
 app.include_router(microphones.router)
 app.include_router(headphones.router)
 app.include_router(recommendation.router)
+app.include_router(setup.router)
 app.include_router(admin.router)
 
 @app.get("/")

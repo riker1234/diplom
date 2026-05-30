@@ -1,30 +1,53 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import Tooltip from './Tooltip'
+import { CHAR_DESCRIPTIONS } from '../charDescriptions'
 
 const FIELD_LABELS: Record<string, string> = {
+  // Общие
   brand: 'Бренд',
+  color: 'Цвет',
+  has_rgb: 'RGB-подсветка',
+  connection_types: 'Подключение',
+  interface: 'Интерфейс',
+  // Мышь
+  sensor: 'Сенсор',
+  max_dpi: 'Макс. DPI',
+  weight_g: 'Вес, г',
+  button_count: 'Кол-во кнопок',
+  // Клавиатура
   keyboard_type: 'Тип клавиатуры',
   switches: 'Переключатели',
   form_factor: 'Форм-фактор',
-  connection_types: 'Подключение',
-  interface: 'Интерфейс',
-  board_material: 'Материал корпуса',
+  key_count: 'Кол-во клавиш',
+  layout: 'Раскладка',
   keycap_material: 'Материал клавиш',
-  keycap_manufacturing: 'Производство клавиш',
-  sensor: 'Сенсор',
-  weight_g: 'Вес, г',
-  max_dpi: 'Макс. DPI',
-  button_count: 'Кол-во кнопок',
+  keycap_manufacturing: 'Нанесение символов',
+  board_material: 'Материал корпуса',
+  // Монитор
   diagonal_inch: 'Диагональ, дюйм',
+  resolution: 'Разрешение',
   refresh_rate_hz: 'Частота обновления, Гц',
   matrix_type: 'Тип матрицы',
-  resolution: 'Разрешение',
+  response_time_ms: 'Время отклика, мс',
+  brightness_nits: 'Яркость, кд/м²',
+  hdr: 'HDR',
+  // Наушники
+  construction_type: 'Конструкция',
   has_microphone: 'Микрофон',
-  mic_type: 'Тип микрофона',
+  impedance_ohm: 'Импеданс, Ом',
   frequency_response: 'Частотный диапазон',
+  noise_cancellation: 'Шумоподавление',
+  // Микрофон
+  mic_type: 'Тип микрофона',
+  directionality: 'Направленность',
+  frequency_range: 'Частотный диапазон',
+  sample_rate: 'Частота дискретизации',
+  bit_depth: 'Разрядность',
+  // Коврик
+  size: 'Размер',
+  surface_material: 'Материал поверхности',
   hardness: 'Жёсткость',
-  has_rgb: 'RGB-подсветка',
-  size_mm: 'Размер, мм',
-  material: 'Материал',
+  thickness_mm: 'Толщина, мм',
 }
 
 const SKIP_FIELDS = new Set([
@@ -73,6 +96,8 @@ interface Props {
 }
 
 export default function ProductModal({ item, onClose }: Props) {
+  const [showBreakdown, setShowBreakdown] = useState(false)
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose()
@@ -87,7 +112,7 @@ export default function ProductModal({ item, onClose }: Props) {
       if (val === null || val === undefined || val === '') return false
       return FIELD_LABELS[key] !== undefined
     })
-    .map(([key, val]) => ({ label: FIELD_LABELS[key], value: formatValue(key, val) }))
+    .map(([key, val]) => ({ key, label: FIELD_LABELS[key], value: formatValue(key, val) }))
     .filter((s) => s.value !== '')
 
   const storeLinks = [
@@ -144,11 +169,50 @@ export default function ProductModal({ item, onClose }: Props) {
             <div className="divide-y divide-gray-100">
               {specs.map((s) => (
                 <div key={s.label} className="flex justify-between py-2 gap-4">
-                  <span className="text-sm text-gray-500">{s.label}</span>
+                  <span className="text-sm text-gray-500 flex items-center">
+                    {s.label}
+                    {CHAR_DESCRIPTIONS[s.key] && (
+                      <Tooltip
+                        short={CHAR_DESCRIPTIONS[s.key].short}
+                        detail={CHAR_DESCRIPTIONS[s.key].detail}
+                      />
+                    )}
+                  </span>
                   <span className="text-sm text-gray-900 text-right">{s.value}</span>
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Score breakdown */}
+        {Array.isArray(item.score_breakdown) && (item.score_breakdown as any[]).length > 0 && (
+          <div className="px-5 pb-2">
+            <button
+              onClick={() => setShowBreakdown(v => !v)}
+              className="w-full flex items-center justify-between text-sm text-blue-600 hover:text-blue-700 font-medium py-2 border-t border-gray-100"
+            >
+              <span>За что начислены баллы?</span>
+              <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-semibold">
+                {item.score as number} б.
+              </span>
+            </button>
+            {showBreakdown && (
+              <div className="mt-1 mb-3 flex flex-col gap-1.5">
+                {(item.score_breakdown as any[]).map((b: any, i: number) => (
+                  <div key={i} className={`flex items-center justify-between rounded-lg px-3 py-1.5 text-xs ${
+                    b.positive
+                      ? 'bg-green-50 text-green-700'
+                      : 'bg-red-50 text-red-600'
+                  }`}>
+                    <span>{b.label}</span>
+                    <span className="font-bold shrink-0 ml-2">
+                      {b.positive ? '+' : ''}{b.points} б.
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -178,13 +242,20 @@ export default function ProductModal({ item, onClose }: Props) {
         )}
 
         {/* Footer: data freshness */}
-        <div className="px-5 pb-4 border-t border-gray-100 pt-3">
-          <p className="text-xs text-gray-400 text-center">
-            {formatDate(item.updated_at)
-              ? `Данные обновлены: ${formatDate(item.updated_at)} · `
-              : ''}
-            Цены и наличие могут отличаться — проверяйте в магазине
-          </p>
+        <div className="px-5 pb-5 pt-3 border-t border-gray-100">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 flex flex-col gap-1">
+            <div className="flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
+              </svg>
+              <span className="text-xs text-amber-700 font-semibold">
+                {formatDate(item.updated_at) ? `Данные обновлены: ${formatDate(item.updated_at)}` : 'Дата обновления неизвестна'}
+              </span>
+            </div>
+            <p className="text-xs text-amber-700 pl-5">
+              Цены и наличие могут отличаться — проверяйте на сайте магазина
+            </p>
+          </div>
         </div>
       </div>
     </div>

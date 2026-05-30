@@ -13,6 +13,12 @@ export interface Question {
   placeholder?: string
 }
 
+export interface ScoreBreakdownItem {
+  label: string
+  points: number
+  positive: boolean
+}
+
 export interface RecommendResultItem {
   id: number
   name: string
@@ -22,6 +28,7 @@ export interface RecommendResultItem {
   citilink_price: number | null
   best_price: number | null
   score: number
+  score_breakdown: ScoreBreakdownItem[]
   image_url: string | null
   ozon_url: string | null
   dns_url: string | null
@@ -58,6 +65,31 @@ const ENDPOINTS: Record<string, string> = {
   headphones: 'headphones',
   microphone: 'microphones',
   mousepad: 'mousepads',
+}
+
+export interface SetupRequest {
+  total_budget: number
+  use_case: 'gaming' | 'work' | 'both'
+  priority: 'budget' | 'balance' | 'flagship'
+}
+
+export interface SetupResult {
+  use_case: string
+  total_budget: number
+  total_price: number
+  remaining: number
+  allocations: Record<string, number>
+  items: Record<string, RecommendResultItem>
+}
+
+export async function fetchSetupRecommendation(req: SetupRequest): Promise<SetupResult> {
+  const res = await fetch(`${BASE}/recommend/setup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  })
+  if (!res.ok) throw new Error('Failed to fetch setup recommendation')
+  return res.json()
 }
 
 export async function fetchCatalog(

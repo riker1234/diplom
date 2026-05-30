@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { fetchQuestions, fetchRecommendations } from '../api'
 import type { Question } from '../api'
+import Tooltip from '../components/Tooltip'
+import { OPTION_DESCRIPTIONS } from '../charDescriptions'
 
 const CATEGORY_LABELS: Record<string, string> = {
   mouse: 'Мышь',
@@ -119,15 +121,25 @@ export default function QuizPage() {
 
       {current.type === 'choice' && current.options && (
         <div className="flex flex-col gap-3">
-          {current.options.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => handleChoice(opt.value)}
-              className="border border-gray-200 rounded-xl px-5 py-4 text-left hover:border-blue-400 hover:bg-blue-50 transition-all text-gray-800 cursor-pointer"
-            >
-              {opt.label}
-            </button>
-          ))}
+          {current.options.map((opt) => {
+            const desc = OPTION_DESCRIPTIONS[opt.value]
+            return (
+              <button
+                key={opt.value}
+                onClick={() => handleChoice(opt.value)}
+                className="border border-gray-200 rounded-xl px-5 py-4 text-left hover:border-blue-400 hover:bg-blue-50 transition-all text-gray-800 cursor-pointer"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span>{opt.label}</span>
+                  {desc && (
+                    <span onClick={(e) => e.stopPropagation()}>
+                      <Tooltip short={desc.short} detail={desc.detail} />
+                    </span>
+                  )}
+                </div>
+              </button>
+            )
+          })}
         </div>
       )}
 

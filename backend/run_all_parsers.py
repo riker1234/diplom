@@ -20,6 +20,7 @@ if not test:
 db = SessionLocal()
 
 parsers = [
+    ("mice",        oz.parse_mice),
     ("keyboards",   oz.parse_keyboards),
     ("monitors",    oz.parse_monitors),
     ("headphones",  oz.parse_headphones),

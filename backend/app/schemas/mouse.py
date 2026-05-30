@@ -11,6 +11,10 @@ class MouseResponse(BaseModel):
     weight_g: Optional[float] = None
     connection_types: Optional[str] = None
     interface: Optional[str] = None
+    button_count: Optional[int] = None
+    max_dpi: Optional[int] = None
+    color: Optional[str] = None
+    has_rgb: Optional[bool] = None
     price: Optional[float] = None
     wb_price: Optional[float] = None
     citilink_price: Optional[float] = None

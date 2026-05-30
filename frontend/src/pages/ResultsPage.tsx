@@ -17,10 +17,15 @@ function formatPrice(p: number | null | undefined) {
   return p.toLocaleString('ru-RU') + ' ₽'
 }
 
-function isStale(updatedAt: string | null, days = 14): boolean {
-  if (!updatedAt) return false
-  const diff = Date.now() - new Date(updatedAt).getTime()
-  return diff > days * 24 * 60 * 60 * 1000
+function formatUpdatedAt(updatedAt: string | null): string | null {
+  if (!updatedAt) return null
+  const d = new Date(updatedAt)
+  const now = new Date()
+  const diffDays = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24))
+  if (diffDays === 0) return 'сегодня'
+  if (diffDays === 1) return 'вчера'
+  if (diffDays < 7) return `${diffDays} дн. назад`
+  return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })
 }
 
 function ImageBox({ url, name }: { url: string | null; name: string }) {
@@ -46,25 +51,74 @@ function ImageBox({ url, name }: { url: string | null; name: string }) {
   )
 }
 
+function RankBadge({ rank, score }: { rank: number; score: number }) {
+  const base = "absolute top-2 left-2 flex items-center gap-1"
+
+  if (rank === 1) return (
+    <div className={base}>
+      <div className="w-8 h-8 rounded-full bg-yellow-400 border-2 border-yellow-300 shadow-md flex items-center justify-center shrink-0">
+        <span className="text-white text-xs font-black">1</span>
+      </div>
+      <span className="bg-yellow-400 text-white text-xs font-semibold px-1.5 py-0.5 rounded-full shadow-sm">
+        {score} б.
+      </span>
+    </div>
+  )
+  if (rank === 2) return (
+    <div className={base}>
+      <div className="w-8 h-8 rounded-full bg-gray-400 border-2 border-gray-300 shadow-md flex items-center justify-center shrink-0">
+        <span className="text-white text-xs font-black">2</span>
+      </div>
+      <span className="bg-gray-400 text-white text-xs font-semibold px-1.5 py-0.5 rounded-full shadow-sm">
+        {score} б.
+      </span>
+    </div>
+  )
+  if (rank === 3) return (
+    <div className={base}>
+      <div className="w-8 h-8 rounded-full bg-amber-600 border-2 border-amber-500 shadow-md flex items-center justify-center shrink-0">
+        <span className="text-white text-xs font-black">3</span>
+      </div>
+      <span className="bg-amber-600 text-white text-xs font-semibold px-1.5 py-0.5 rounded-full shadow-sm">
+        {score} б.
+      </span>
+    </div>
+  )
+  return (
+    <div className={base}>
+      <div className="w-7 h-7 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center shrink-0">
+        <span className="text-gray-500 text-xs font-semibold">{rank}</span>
+      </div>
+      <span className="bg-white text-gray-500 text-xs font-medium px-1.5 py-0.5 rounded-full shadow-sm border border-gray-200">
+        {score} б.
+      </span>
+    </div>
+  )
+}
+
 function ProductCard({
   item,
+  rank,
   onClick,
 }: {
   item: RecommendResultItem
+  rank: number
   onClick: () => void
 }) {
   return (
     <div
       onClick={onClick}
-      className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md hover:border-blue-300 transition-all flex flex-col cursor-pointer"
+      className={`bg-white border rounded-xl overflow-hidden hover:shadow-md transition-all flex flex-col cursor-pointer ${
+        rank === 1
+          ? 'border-yellow-300 shadow-sm'
+          : rank <= 3
+          ? 'border-gray-300'
+          : 'border-gray-200 hover:border-blue-300'
+      }`}
     >
       <div className="relative">
         <ImageBox url={item.image_url} name={item.name} />
-        {isStale(item.updated_at) && (
-          <div className="absolute top-2 left-2 bg-orange-100 text-orange-600 text-xs font-medium px-2 py-0.5 rounded-full border border-orange-200">
-            Уточните наличие
-          </div>
-        )}
+        <RankBadge rank={rank} score={item.score} />
       </div>
       <div className="p-4 flex flex-col flex-1">
         {item.brand && (
@@ -127,6 +181,11 @@ function ProductCard({
             </a>
           )}
         </div>
+        {item.updated_at && (
+          <div className="text-xs text-gray-400 mt-1.5">
+            Данные: {formatUpdatedAt(item.updated_at)}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -170,9 +229,14 @@ export default function ResultsPage() {
       </div>
 
       {results.length > 0 && (
-        <p className="text-xs text-gray-400 mb-4 -mt-2">
-          Цены и наличие актуальны на момент последней проверки. Уточняйте на сайте магазина.
-        </p>
+        <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4 -mt-1">
+          <svg className="w-4 h-4 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z" />
+          </svg>
+          <p className="text-xs text-amber-700 font-medium">
+            Цены актуальны на момент последнего обновления данных — уточняйте наличие на сайте магазина.
+          </p>
+        </div>
       )}
 
       {results.length === 0 ? (
@@ -184,8 +248,8 @@ export default function ResultsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {results.map((item) => (
-            <ProductCard key={item.id} item={item} onClick={() => setSelected(item)} />
+          {results.map((item, index) => (
+            <ProductCard key={item.id} item={item} rank={index + 1} onClick={() => setSelected(item)} />
           ))}
         </div>
       )}

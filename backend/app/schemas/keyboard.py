@@ -6,13 +6,18 @@ class KeyboardResponse(BaseModel):
     id: int
     name: str
     brand: Optional[str] = None
+    keyboard_type: Optional[str] = None
     switches: Optional[str] = None
-    board_material: Optional[str] = None
     form_factor: Optional[str] = None
+    key_count: Optional[int] = None
+    layout: Optional[str] = None
+    board_material: Optional[str] = None
     keycap_material: Optional[str] = None
     keycap_manufacturing: Optional[str] = None
     connection_types: Optional[str] = None
     interface: Optional[str] = None
+    color: Optional[str] = None
+    has_rgb: Optional[bool] = None
     price: Optional[float] = None
     wb_price: Optional[float] = None
     citilink_price: Optional[float] = None
