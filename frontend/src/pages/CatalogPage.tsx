@@ -106,7 +106,7 @@ export default function CatalogPage() {
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Каталог</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Каталог</h1>
 
       {/* Category tabs */}
       <div className="flex gap-2 flex-wrap mb-4">
@@ -117,7 +117,7 @@ export default function CatalogPage() {
             className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-colors cursor-pointer ${
               category === cat.id
                 ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-300'
             }`}
           >
             {cat.label}
@@ -131,8 +131,8 @@ export default function CatalogPage() {
           onClick={() => setSources(new Set())}
           className={`px-3 py-1 rounded-full text-sm border transition-colors cursor-pointer ${
             sources.size === 0
-              ? 'bg-gray-800 text-white border-gray-800'
-              : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+              ? 'bg-gray-800 text-white border-gray-800 dark:bg-gray-200 dark:text-gray-900 dark:border-gray-200'
+              : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-gray-400'
           }`}
         >
           Все
@@ -163,7 +163,7 @@ export default function CatalogPage() {
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value)}
-          className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:border-blue-400 cursor-pointer"
+          className="border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 rounded-lg px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 focus:outline-none focus:border-blue-400 cursor-pointer"
         >
           {SORT_OPTIONS.map((o) => (
             <option key={o.id} value={o.id}>{o.label}</option>
@@ -178,7 +178,7 @@ export default function CatalogPage() {
           value={priceMin}
           onChange={(e) => setPriceMin(e.target.value)}
           placeholder="от"
-          className="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+          className="w-24 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 rounded-lg px-3 py-1.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-400"
         />
         <span className="text-gray-400">—</span>
         <input
@@ -186,7 +186,7 @@ export default function CatalogPage() {
           value={priceMax}
           onChange={(e) => setPriceMax(e.target.value)}
           placeholder="до"
-          className="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+          className="w-24 border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 rounded-lg px-3 py-1.5 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-400"
         />
         <span className="text-sm text-gray-500">₽</span>
         {(priceMin || priceMax) && (
@@ -230,14 +230,14 @@ export default function CatalogPage() {
                   <div
                     key={item.id}
                     onClick={() => setSelected(item)}
-                    className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md hover:border-blue-300 transition-all flex flex-col cursor-pointer"
+                    className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden hover:shadow-md hover:border-blue-300 dark:hover:border-blue-500 transition-all flex flex-col cursor-pointer"
                   >
                     <ImageBox url={item.image_url} name={item.name} />
                     <div className="p-3 flex flex-col flex-1">
                       <div className="text-xs text-gray-400 uppercase tracking-wide mb-1">
                         {displayBrand(item.brand)}
                       </div>
-                      <h3 className="font-medium text-gray-900 text-sm leading-snug mb-2 line-clamp-2 flex-1">
+                      <h3 className="font-medium text-gray-900 dark:text-white text-sm leading-snug mb-2 line-clamp-2 flex-1">
                         {item.name}
                       </h3>
                       {bp != null && (
@@ -253,7 +253,7 @@ export default function CatalogPage() {
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
-                            className="text-xs bg-gray-100 hover:bg-gray-200 rounded px-2 py-1 text-gray-600 transition-colors"
+                            className="text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded px-2 py-1 text-gray-600 dark:text-gray-300 transition-colors"
                           >
                             {link.label}
                             {link.price != null ? ` ${formatPrice(link.price)}` : ''}

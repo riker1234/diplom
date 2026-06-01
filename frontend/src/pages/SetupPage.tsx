@@ -58,12 +58,12 @@ export default function SetupPage() {
 
   return (
     <main className="max-w-3xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-900 mb-1">Подбор комплекта</h1>
-      <p className="text-gray-400 text-sm mb-6">
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Подбор комплекта</h1>
+      <p className="text-gray-400 dark:text-gray-500 text-sm mb-6">
         Система распределит бюджет между всеми категориями и подберёт оптимальный набор периферии.
       </p>
 
-      <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
+      <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 mb-6">
         {/* Бюджет */}
         <div className="mb-5">
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -75,7 +75,7 @@ export default function SetupPage() {
             onChange={(e) => setBudget(e.target.value)}
             placeholder="Например: 50000"
             min={5000}
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+            className="w-full border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
             required
           />
         </div>
@@ -93,8 +93,8 @@ export default function SetupPage() {
                 onClick={() => setUseCase(opt.value as SetupRequest['use_case'])}
                 className={`border rounded-xl px-3 py-3 text-sm text-left transition-all ${
                   useCase === opt.value
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 text-gray-600 hover:border-blue-300'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                    : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-blue-300'
                 }`}
               >
                 <div className="font-medium">{opt.label}</div>
@@ -117,8 +117,8 @@ export default function SetupPage() {
                 onClick={() => setPriority(opt.value as SetupRequest['priority'])}
                 className={`border rounded-xl px-3 py-3 text-sm text-left transition-all ${
                   priority === opt.value
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 text-gray-600 hover:border-blue-300'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300'
+                    : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-blue-300'
                 }`}
               >
                 <div className="font-medium">{opt.label}</div>
@@ -142,7 +142,7 @@ export default function SetupPage() {
       {result && (
         <div>
           {/* Итог бюджета */}
-          <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-4 flex items-center justify-between">
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 mb-4 flex items-center justify-between">
             <div>
               <div className="text-sm text-gray-400">Итого</div>
               <div className="text-2xl font-bold text-gray-900">{formatPrice(result.total_price)}</div>
@@ -163,7 +163,7 @@ export default function SetupPage() {
               <div
                 key={cat}
                 onClick={() => setSelected(item)}
-                className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:border-blue-300 hover:shadow-sm transition-all"
+                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:border-blue-300 dark:hover:border-blue-500 hover:shadow-sm transition-all"
               >
                 {/* Изображение */}
                 <div className="w-16 h-16 bg-gray-50 rounded-lg flex items-center justify-center shrink-0 overflow-hidden">

@@ -15,10 +15,10 @@ export default function HomePage() {
   return (
     <main className="max-w-5xl mx-auto px-4 py-12">
       <div className="text-center mb-10">
-        <h1 className="text-3xl font-bold text-gray-900 mb-3">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
           Подбор периферии для ПК
         </h1>
-        <p className="text-gray-500 text-lg">
+        <p className="text-gray-500 dark:text-gray-400 text-lg">
           Ответьте на несколько вопросов — подберём лучшие варианты по вашему бюджету
         </p>
       </div>
@@ -28,13 +28,13 @@ export default function HomePage() {
           <button
             key={cat.id}
             onClick={() => navigate(`/quiz/${cat.id}`)}
-            className="bg-white border border-gray-200 rounded-xl p-6 text-left hover:border-blue-400 hover:shadow-md transition-all group cursor-pointer"
+            className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 text-left hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all group cursor-pointer"
           >
             <div className="text-4xl mb-3">{cat.icon}</div>
-            <div className="font-semibold text-gray-900 group-hover:text-blue-600 text-lg transition-colors">
+            <div className="font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 text-lg transition-colors">
               {cat.label}
             </div>
-            <div className="text-sm text-gray-400 mt-1">{cat.desc}</div>
+            <div className="text-sm text-gray-400 dark:text-gray-500 mt-1">{cat.desc}</div>
           </button>
         ))}
       </div>

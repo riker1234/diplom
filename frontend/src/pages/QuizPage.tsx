@@ -71,7 +71,7 @@ export default function QuizPage() {
 
   if (loading) {
     return (
-      <div className="max-w-lg mx-auto px-4 py-16 text-center text-gray-400">
+      <div className="max-w-lg mx-auto px-4 py-16 text-center text-gray-400 dark:text-gray-500">
         Загрузка вопросов...
       </div>
     )
@@ -90,7 +90,7 @@ export default function QuizPage() {
 
   if (submitting) {
     return (
-      <div className="max-w-lg mx-auto px-4 py-16 text-center text-gray-400">
+      <div className="max-w-lg mx-auto px-4 py-16 text-center text-gray-400 dark:text-gray-500">
         Подбираем варианты...
       </div>
     )
@@ -103,13 +103,11 @@ export default function QuizPage() {
   return (
     <main className="max-w-lg mx-auto px-4 py-10">
       <div className="mb-8">
-        <div className="flex items-center justify-between mb-2 text-sm text-gray-400">
+        <div className="flex items-center justify-between mb-2 text-sm text-gray-400 dark:text-gray-500">
           <span>{CATEGORY_LABELS[category!] ?? category}</span>
-          <span>
-            {step + 1} / {questions.length}
-          </span>
+          <span>{step + 1} / {questions.length}</span>
         </div>
-        <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+        <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
           <div
             className="h-full bg-blue-500 rounded-full transition-all duration-300"
             style={{ width: `${progress}%` }}
@@ -117,7 +115,7 @@ export default function QuizPage() {
         </div>
       </div>
 
-      <h2 className="text-xl font-semibold text-gray-900 mb-6">{current.text}</h2>
+      <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">{current.text}</h2>
 
       {current.type === 'choice' && current.options && (
         <div className="flex flex-col gap-3">
@@ -127,7 +125,7 @@ export default function QuizPage() {
               <button
                 key={opt.value}
                 onClick={() => handleChoice(opt.value)}
-                className="border border-gray-200 rounded-xl px-5 py-4 text-left hover:border-blue-400 hover:bg-blue-50 transition-all text-gray-800 cursor-pointer"
+                className="border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-xl px-5 py-4 text-left hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-gray-700 transition-all text-gray-800 dark:text-gray-200 cursor-pointer"
               >
                 <div className="flex items-center justify-between gap-2">
                   <span>{opt.label}</span>
@@ -150,7 +148,7 @@ export default function QuizPage() {
             type="number"
             min={0}
             placeholder={current.placeholder ?? ''}
-            className="border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+            className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
             required
           />
           <button
@@ -165,7 +163,7 @@ export default function QuizPage() {
       {step > 0 && (
         <button
           onClick={() => setStep(step - 1)}
-          className="mt-6 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+          className="mt-6 text-sm text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
         >
           ← Назад
         </button>
