@@ -91,7 +91,7 @@ function formatDate(dt: unknown): string | null {
 }
 
 interface Props {
-  item: Record<string, unknown>
+  item: Record<string, any>
   onClose: () => void
 }
 
