@@ -1,4 +1,5 @@
 import re
+import json
 import time
 import random
 import logging
@@ -152,62 +153,74 @@ def _get_properties(product_url: str) -> tuple[dict, float | None]:
         }
     """)
 
-    # Detect out-of-stock: check only the buy-block / product-header area,
-    # NOT the whole body (avoids false positives from "similar products" widgets)
-    is_oos = page.evaluate("""
-        () => {
-            var selectors = [
-                '[class*="buy-block"]',
-                '[class*="BuyBlock"]',
-                '[class*="ProductHeader"]',
-                '[class*="productHeader"]',
-                '[class*="ProductAvailability"]',
-                '[class*="CardAvailability"]',
-            ];
-            for (var i = 0; i < selectors.length; i++) {
-                var el = document.querySelector(selectors[i]);
-                if (el && el.innerText.includes('Нет в наличии')) return true;
+    # JSON-LD (schema.org Product) — stable source for price/availability/brand,
+    # immune to Citilink's hashed CSS class names.
+    ld = _extract_jsonld(page)
+    if ld and ld.get("brand") and not data.get("Бренд"):
+        data["Бренд"] = ld["brand"]
+
+    # ── Out of stock ──────────────────────────────────────────────────────────
+    # Prefer JSON-LD availability; fall back to a scoped text scan.
+    is_oos = None
+    if ld and ld.get("availability"):
+        is_oos = "instock" not in str(ld["availability"]).lower()
+    if is_oos is None:
+        is_oos = page.evaluate("""
+            () => {
+                var selectors = [
+                    '[class*="buy-block"]',
+                    '[class*="BuyBlock"]',
+                    '[class*="ProductHeader"]',
+                    '[class*="productHeader"]',
+                    '[class*="ProductAvailability"]',
+                    '[class*="CardAvailability"]',
+                ];
+                for (var i = 0; i < selectors.length; i++) {
+                    var el = document.querySelector(selectors[i]);
+                    if (el && el.innerText.includes('Нет в наличии')) return true;
+                }
+                return false;
             }
-            return false;
-        }
-    """)
+        """)
     if is_oos:
         logger.info("citilink props: out of stock")
         result = data if isinstance(data, dict) else {}
         result["__oos__"] = True
         return (result, None)
 
-    price_raw = page.evaluate("""
-        () => {
-            // Only specific header/buy-block selectors — no full-page text scan
-            // to avoid grabbing prices from recommendation widgets or banners
-            var selectors = [
-                '[class*="Price__price"]',
-                '[class*="price__price"]',
-                '[data-meta-name="Price"]',
-                '[class*="ProductHeader__price"]',
-                '[class*="productHeader__price"]',
-                '[class*="buy-block"] [class*="price"]',
-                '[class*="BuyBlock"] [class*="price"]',
-            ];
-            for (var i = 0; i < selectors.length; i++) {
-                var el = document.querySelector(selectors[i]);
-                if (el) {
-                    var txt = el.innerText.trim();
-                    if (txt && /\\d/.test(txt)) return txt;
-                }
-            }
-            return null;
-        }
-    """)
+    # ── Price ─────────────────────────────────────────────────────────────────
+    # Prefer JSON-LD offers.price; fall back to the (mostly stale) CSS selectors.
     price = None
-    if price_raw:
-        m = re.search(r"[\d\s]+", price_raw.replace("\xa0", ""))
-        if m:
-            candidate = float(re.sub(r"\s+", "", m.group()))
-            # Sanity check: ignore obviously wrong prices (too low for any peripheral)
-            if candidate >= 200:
-                price = candidate
+    if ld and ld.get("price") is not None and ld["price"] >= 200:
+        price = ld["price"]
+    if price is None:
+        price_raw = page.evaluate("""
+            () => {
+                var selectors = [
+                    '[data-meta-name="Price"]',
+                    '[class*="Price__price"]',
+                    '[class*="price__price"]',
+                    '[class*="ProductHeader__price"]',
+                    '[class*="productHeader__price"]',
+                    '[class*="buy-block"] [class*="price"]',
+                    '[class*="BuyBlock"] [class*="price"]',
+                ];
+                for (var i = 0; i < selectors.length; i++) {
+                    var el = document.querySelector(selectors[i]);
+                    if (el) {
+                        var txt = el.innerText.trim();
+                        if (txt && /\\d/.test(txt)) return txt;
+                    }
+                }
+                return null;
+            }
+        """)
+        if price_raw:
+            m = re.search(r"[\d\s]+", price_raw.replace("\xa0", ""))
+            if m:
+                candidate = float(re.sub(r"\s+", "", m.group()))
+                if candidate >= 200:
+                    price = candidate
 
     return (data or {}, price)
 
@@ -230,12 +243,72 @@ def _parse_bool(value: str) -> bool:
     return low in ("да", "есть", "yes", "+", "true") or "rgb" in low or "подсветка" in low
 
 
+def _norm_label(s: str) -> str:
+    """Normalize a property label: drop all whitespace, lowercase.
+
+    Citilink sometimes renders labels without spaces between words
+    (e.g. 'Типматрицы' instead of 'Тип матрицы'), so exact matching fails.
+    Normalized comparison makes lookups robust to that.
+    """
+    return re.sub(r"\s+", "", s or "").lower()
+
+
 def _get(props: dict, *keys: str) -> str | None:
+    norm = {_norm_label(k): v for k, v in props.items()}
     for k in keys:
-        v = props.get(k)
+        v = norm.get(_norm_label(k))
         if v:
             return v
     return None
+
+
+def _extract_jsonld(page) -> dict | None:
+    """Read price/availability/brand/sku from schema.org Product JSON-LD.
+
+    This is Citilink's stable structured source — immune to the hashed
+    styled-component class names that broke the old CSS price selectors.
+    """
+    try:
+        raw = page.evaluate(
+            "() => { var s = document.querySelector('script[type=\"application/ld+json\"]');"
+            " return s ? s.innerText : null; }"
+        )
+    except Exception:
+        return None
+    if not raw:
+        return None
+    try:
+        doc = json.loads(raw)
+    except Exception:
+        return None
+    if isinstance(doc, list):
+        doc = next(
+            (x for x in doc if isinstance(x, dict) and x.get("@type") == "Product"),
+            doc[0] if doc else None,
+        )
+    if not isinstance(doc, dict):
+        return None
+    offers = doc.get("offers")
+    if isinstance(offers, list):
+        offers = offers[0] if offers else {}
+    offers = offers or {}
+    price = None
+    raw_price = offers.get("price")
+    if raw_price is not None:
+        try:
+            price = float(str(raw_price).replace(",", "."))
+        except (ValueError, TypeError):
+            price = None
+    brand = doc.get("brand")
+    if isinstance(brand, dict):
+        brand = brand.get("name")
+    return {
+        "price": price,
+        "availability": offers.get("availability"),
+        "brand": brand,
+        "sku": doc.get("sku"),
+        "name": doc.get("name"),
+    }
 
 
 # ── Маппер: мышь ─────────────────────────────────────────────────────────────
@@ -300,7 +373,7 @@ def _map_keyboard(props: dict) -> dict:
 # ── Маппер: монитор ───────────────────────────────────────────────────────────
 
 def _map_monitor(props: dict) -> dict:
-    diag_str = _get(props, "Диагональ экрана", "Диагональ")
+    diag_str = _get(props, "Диагональ экрана", "Диагональ", "Размер экрана")
     refresh_str = _get(props, "Частота обновления экрана", "Частота обновления", "Максимальная частота обновления")
     resp_str = _get(props, "Время отклика")
     bright_str = _get(props, "Яркость", "Максимальная яркость")
@@ -330,15 +403,16 @@ def _map_headphones(props: dict) -> dict:
         if fmin and fmax:
             frequency_response = f"{fmin}-{fmax}"
     imp_str = _get(props, "Импеданс", "Сопротивление")
-    has_mic_str = _get(props, "Микрофон", "Встроенный микрофон")
+    mic_field = _get(props, "Выключение микрофона", "Крепление микрофона", "Микрофон", "Встроенный микрофон")
+    has_microphone = bool(mic_field) and not re.search(r"(нет|отсутств)", mic_field, re.IGNORECASE)
     has_rgb_str = _get(props, "Подсветка", "Тип подсветки")
     noise_str = _get(props, "Шумоподавление", "Активное шумоподавление")
     return {
         "brand":             _get(props, "Бренд"),
-        "construction_type": _get(props, "Вид наушников", "Конструкция", "Тип наушников"),
-        "connection_types":  _get(props, "Тип подключения"),
+        "construction_type": _get(props, "Тип конструкции", "Вид наушников", "Конструкция", "Тип наушников"),
+        "connection_types":  _get(props, "Тип соединения гарнитуры", "Тип подключения"),
         "interface":         _get(props, "Интерфейс подключения", "Интерфейс"),
-        "has_microphone":    _parse_bool(has_mic_str) if has_mic_str else False,
+        "has_microphone":    has_microphone,
         "noise_cancellation": "есть" if noise_str and _parse_bool(noise_str) else None,
         "frequency_response": frequency_response,
         "impedance_ohm":     _parse_int(imp_str) if imp_str else None,
@@ -372,9 +446,9 @@ def _map_mousepad(props: dict) -> dict:
     return {
         "brand":            _get(props, "Бренд"),
         "size":             _get(props, "Размер коврика", "Размер"),
-        "surface_material": _get(props, "Материал поверхности", "Покрытие поверхности"),
+        "surface_material": _get(props, "Материал поверхности", "Покрытие поверхности", "Материал"),
         "hardness":         _get(props, "Жёсткость", "Тип поверхности"),
-        "color":            _get(props, "Цвет"),
+        "color":            _get(props, "Цвет", "Основной цвет"),
         "thickness_mm":     _parse_float(thickness_str) if thickness_str else None,
         "has_rgb":          _parse_bool(has_rgb_str) if has_rgb_str else False,
     }
