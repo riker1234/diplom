@@ -1,3 +1,5 @@
+import secrets
+
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -33,7 +35,9 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 def _require_admin(x_admin_key: str = Header(...)):
-    if x_admin_key != settings.ADMIN_KEY:
+    if not settings.ADMIN_KEY:
+        raise HTTPException(status_code=503, detail="Admin disabled (ADMIN_KEY not configured)")
+    if not secrets.compare_digest(x_admin_key, settings.ADMIN_KEY):
         raise HTTPException(status_code=403, detail="Forbidden")
 
 
