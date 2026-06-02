@@ -167,6 +167,12 @@ def recommend(category: str, answers: dict, db: Session) -> list[dict]:
             "wb_url": p.wb_url,
             "citilink_url": p.citilink_url,
             "updated_at": p.updated_at,
+            "ozon_rating":      _attr(p, "ozon_rating"),
+            "ozon_reviews":     _attr(p, "ozon_reviews"),
+            "citilink_rating":  _attr(p, "citilink_rating"),
+            "citilink_reviews": _attr(p, "citilink_reviews"),
+            "wb_rating":        _attr(p, "wb_rating"),
+            "wb_reviews":       _attr(p, "wb_reviews"),
             # Characteristics (field may not exist on all models — safe via getattr)
             "sensor":             _attr(p, "sensor"),
             "weight_g":           _attr(p, "weight_g"),

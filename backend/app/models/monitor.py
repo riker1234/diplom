@@ -1,8 +1,8 @@
 ﻿from sqlalchemy import Column, Integer, String, Float, Boolean
 from app.database import Base
-from app.models import TimestampMixin
+from app.models import TimestampMixin, RatingMixin
 
-class Monitor(Base, TimestampMixin):
+class Monitor(Base, TimestampMixin, RatingMixin):
     __tablename__ = "monitors"
 
     id = Column(Integer, primary_key=True, index=True)

@@ -581,6 +581,8 @@ def _run_parse(
                     brand = first
             wb_price = _get_wb_price(product)
             wb_url = _get_wb_url(product)
+            wb_rating = product.get("reviewRating") or product.get("nmReviewRating") or product.get("rating") or None
+            wb_reviews = product.get("feedbacks") or None
             image_url = None
             # Фото: https://basket-XX.wbbasket.ru/vol{vol}/part{part}/{id}/images/big/1.webp
             try:
@@ -604,6 +606,10 @@ def _run_parse(
             existing = db.query(model_class).filter(model_class.wb_sku == wb_sku).first()
             if existing:
                 existing.wb_price = wb_price
+                if wb_rating is not None:
+                    existing.wb_rating = wb_rating
+                if wb_reviews is not None:
+                    existing.wb_reviews = wb_reviews
                 if image_url and not existing.image_url:
                     existing.image_url = image_url
                 for field, value in chars.items():
@@ -619,6 +625,10 @@ def _run_parse(
                 matched.wb_sku = wb_sku
                 matched.wb_url = wb_url
                 matched.wb_price = wb_price
+                if wb_rating is not None:
+                    matched.wb_rating = wb_rating
+                if wb_reviews is not None:
+                    matched.wb_reviews = wb_reviews
                 if image_url and not matched.image_url:
                     matched.image_url = image_url
                 for field, value in chars.items():
@@ -637,6 +647,8 @@ def _run_parse(
                     wb_sku=wb_sku,
                     wb_url=wb_url,
                     wb_price=wb_price,
+                    wb_rating=wb_rating,
+                    wb_reviews=wb_reviews,
                     image_url=image_url,
                     **chars,
                 ))

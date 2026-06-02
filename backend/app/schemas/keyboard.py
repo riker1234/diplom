@@ -28,6 +28,12 @@ class KeyboardResponse(BaseModel):
     citilink_url: Optional[str] = None
     source: Optional[str] = None
     updated_at: Optional[datetime] = None
+    ozon_rating: Optional[float] = None
+    ozon_reviews: Optional[int] = None
+    citilink_rating: Optional[float] = None
+    citilink_reviews: Optional[int] = None
+    wb_rating: Optional[float] = None
+    wb_reviews: Optional[int] = None
 
     model_config = {"from_attributes": True}
 

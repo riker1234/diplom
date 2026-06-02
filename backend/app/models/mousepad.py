@@ -1,8 +1,8 @@
 ﻿from sqlalchemy import Column, Integer, String, Float, Boolean
 from app.database import Base
-from app.models import TimestampMixin
+from app.models import TimestampMixin, RatingMixin
 
-class Mousepad(Base, TimestampMixin):
+class Mousepad(Base, TimestampMixin, RatingMixin):
     __tablename__ = "mousepads"
 
     id = Column(Integer, primary_key=True, index=True)

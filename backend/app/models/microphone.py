@@ -1,8 +1,8 @@
 ﻿from sqlalchemy import Column, Integer, String, Float
 from app.database import Base
-from app.models import TimestampMixin
+from app.models import TimestampMixin, RatingMixin
 
-class Microphone(Base, TimestampMixin):
+class Microphone(Base, TimestampMixin, RatingMixin):
     __tablename__ = "microphones"
 
     id = Column(Integer, primary_key=True, index=True)

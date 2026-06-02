@@ -530,6 +530,29 @@ def _get_brand(product: dict, name: str = "") -> str:
     return ""
 
 
+def _get_rating(product: dict) -> tuple[float | None, int | None]:
+    """Extract (rating, review_count) from the tile's labelListV2.
+    Items are ordered [brand, rating (0..5), review_count, 'Ozon']."""
+    rating = reviews = None
+    for state in product.get("mainState", []):
+        if state.get("type") != "labelListV2":
+            continue
+        nums = []
+        for item in state.get("labelListV2", {}).get("items", []):
+            if item.get("type") == "text":
+                t = (item.get("text", {}).get("text", "") or "").strip()
+                ns = re.sub(r"\s+", "", t).replace(",", ".")
+                if re.match(r"^\d+(\.\d+)?$", ns):
+                    nums.append(float(ns))
+        for n in nums:
+            if rating is None and 0 < n <= 5:
+                rating = n
+            elif reviews is None:
+                reviews = int(n)
+        break
+    return rating, reviews
+
+
 def _get_price(product: dict) -> float:
     for state in product.get("mainState", []):
         if state.get("type") == "priceV2":
@@ -598,6 +621,7 @@ def _run_parse(
                 continue
             brand = _get_brand(product, name)
             price = _get_price(product)
+            rating, reviews = _get_rating(product)
             image_url = _get_image(product)
             product_url = _get_url(product)
             ozon_url = f"https://www.ozon.ru{product_url}" if product_url.startswith("/") else product_url
@@ -617,6 +641,10 @@ def _run_parse(
                 # parser can now extract a real one.
                 if brand and _is_brand_like(brand) and not _is_brand_like(existing.brand or ""):
                     existing.brand = brand
+                if rating is not None:
+                    existing.ozon_rating = rating
+                if reviews is not None:
+                    existing.ozon_reviews = reviews
                 for field, value in chars.items():
                     if value is not None:
                         setattr(existing, field, value)
@@ -632,6 +660,8 @@ def _run_parse(
                     price=price,
                     ozon_sku=ozon_sku,
                     ozon_url=ozon_url,
+                    ozon_rating=rating,
+                    ozon_reviews=reviews,
                     image_url=image_url,
                     **chars,
                 ))

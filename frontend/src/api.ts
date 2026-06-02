@@ -35,6 +35,12 @@ export interface RecommendResultItem {
   wb_url: string | null
   citilink_url: string | null
   updated_at: string | null
+  ozon_rating: number | null
+  ozon_reviews: number | null
+  citilink_rating: number | null
+  citilink_reviews: number | null
+  wb_rating: number | null
+  wb_reviews: number | null
 }
 
 export async function fetchQuestions(category: string): Promise<Question[]> {

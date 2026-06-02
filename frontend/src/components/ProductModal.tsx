@@ -116,11 +116,11 @@ export default function ProductModal({ item, onClose }: Props) {
     .filter((s) => s.value !== '')
 
   const storeLinks = [
-    item.ozon_url && { label: 'Ozon', url: item.ozon_url as string, price: item.price as number | null },
-    item.wb_url && { label: 'Wildberries', url: item.wb_url as string, price: item.wb_price as number | null },
-    item.dns_url && { label: 'DNS', url: item.dns_url as string, price: null },
-    item.citilink_url && { label: 'Ситилинк', url: item.citilink_url as string, price: item.citilink_price as number | null },
-  ].filter(Boolean) as { label: string; url: string; price: number | null }[]
+    item.ozon_url && { label: 'Ozon', url: item.ozon_url as string, price: item.price as number | null, rating: item.ozon_rating as number | null, reviews: item.ozon_reviews as number | null },
+    item.wb_url && { label: 'Wildberries', url: item.wb_url as string, price: item.wb_price as number | null, rating: item.wb_rating as number | null, reviews: item.wb_reviews as number | null },
+    item.dns_url && { label: 'DNS', url: item.dns_url as string, price: null, rating: null, reviews: null },
+    item.citilink_url && { label: 'Ситилинк', url: item.citilink_url as string, price: item.citilink_price as number | null, rating: item.citilink_rating as number | null, reviews: item.citilink_reviews as number | null },
+  ].filter(Boolean) as { label: string; url: string; price: number | null; rating: number | null; reviews: number | null }[]
 
   return (
     <div
@@ -231,7 +231,14 @@ export default function ProductModal({ item, onClose }: Props) {
                   rel="noopener noreferrer"
                   className="flex items-center justify-between bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3 transition-colors"
                 >
-                  <span className="font-medium text-gray-700 dark:text-gray-200">{link.label}</span>
+                  <span className="flex flex-col">
+                    <span className="font-medium text-gray-700 dark:text-gray-200">{link.label}</span>
+                    {link.rating != null && (
+                      <span className="text-xs text-amber-600 dark:text-amber-400">
+                        ★ {link.rating}{link.reviews ? ` · ${link.reviews} отз.` : ''}
+                      </span>
+                    )}
+                  </span>
                   {link.price != null && (
                     <span className="font-bold text-blue-600 dark:text-blue-400">{formatPrice(link.price)}</span>
                   )}

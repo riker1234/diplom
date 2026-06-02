@@ -1,8 +1,8 @@
 ﻿from sqlalchemy import Column, Integer, String, Float, Boolean
 from app.database import Base
-from app.models import TimestampMixin
+from app.models import TimestampMixin, RatingMixin
 
-class Headphones(Base, TimestampMixin):
+class Headphones(Base, TimestampMixin, RatingMixin):
     __tablename__ = "headphones"
 
     id = Column(Integer, primary_key=True, index=True)

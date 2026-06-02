@@ -30,6 +30,12 @@ class RecommendResultItem(BaseModel):
     wb_url: Optional[str] = None
     citilink_url: Optional[str] = None
     updated_at: Optional[datetime] = None
+    ozon_rating: Optional[float] = None
+    ozon_reviews: Optional[int] = None
+    citilink_rating: Optional[float] = None
+    citilink_reviews: Optional[int] = None
+    wb_rating: Optional[float] = None
+    wb_reviews: Optional[int] = None
     # Mouse
     sensor: Optional[str] = None
     weight_g: Optional[float] = None

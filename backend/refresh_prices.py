@@ -55,6 +55,34 @@ def _parse_rub(s: str | None) -> float | None:
     return float(digits) if digits else None
 
 
+def _ozon_rating_from_ws(ws: dict) -> tuple[float | None, int | None]:
+    """Rating + review count from the Ozon product-page score widget."""
+    for k, v in ws.items():
+        if "webSingleProductScore" in k:
+            try:
+                obj = json.loads(v) if isinstance(v, str) else v
+            except Exception:
+                continue
+            text = obj.get("text") or ""  # e.g. "4.8 • 1 608 отзывов"
+            parts = text.split("•")
+            rating = reviews = None
+            m = re.search(r"\d+(?:[.,]\d+)?", parts[0]) if parts else None
+            if m:
+                rating = float(m.group().replace(",", "."))
+            if len(parts) > 1:
+                reviews = int(_parse_rub(parts[1]) or 0) or None
+            return rating, reviews
+    for k, v in ws.items():
+        if "webReviewProductScore" in k:
+            try:
+                obj = json.loads(v) if isinstance(v, str) else v
+            except Exception:
+                continue
+            rc = obj.get("reviewsCount")
+            return None, (int(rc) if rc else None)
+    return None, None
+
+
 def _collect(url_attr: str) -> list[tuple]:
     """Read plain (model, id, url) tuples up front (avoids detached ORM rows)."""
     sess = _Session()
@@ -122,11 +150,22 @@ def refresh_ozon(limit: int | None = None) -> dict:
                         status = "ok"
                         price = _parse_rub(obj.get("cardPrice") or obj.get("price") or obj.get("originalPrice"))
                     break
+            rating, reviews = _ozon_rating_from_ws(ws)
+
+            def _mut(r, price=price, status=status, rating=rating, reviews=reviews):
+                if status == "ok" and price and price >= 100:
+                    r.price = price
+                elif status == "oos":
+                    r.price = None
+                if rating is not None:
+                    r.ozon_rating = rating
+                if reviews is not None:
+                    r.ozon_reviews = reviews
+
+            _apply(model, pid, _mut)
             if status == "ok" and price and price >= 100:
-                _apply(model, pid, lambda r: setattr(r, "price", price))
                 updated += 1
             elif status == "oos":
-                _apply(model, pid, lambda r: setattr(r, "price", None))
                 oos += 1
             else:
                 notfound += 1
@@ -148,11 +187,24 @@ def refresh_citilink(limit: int | None = None) -> dict:
     for i, (model, pid, url) in enumerate(rows, 1):
         try:
             props, price = CT._get_properties(url)
-            if props.pop("__oos__", False):
-                _apply(model, pid, lambda r: setattr(r, "citilink_price", None))
+            is_oos = props.pop("__oos__", False)
+            rating = props.get("__rating__")
+            reviews = props.get("__reviews__")
+
+            def _mut(r, is_oos=is_oos, price=price, rating=rating, reviews=reviews):
+                if is_oos:
+                    r.citilink_price = None
+                elif price is not None:
+                    r.citilink_price = price
+                if rating is not None:
+                    r.citilink_rating = rating
+                if reviews is not None:
+                    r.citilink_reviews = reviews
+
+            _apply(model, pid, _mut)
+            if is_oos:
                 oos += 1
             elif price is not None:
-                _apply(model, pid, lambda r: setattr(r, "citilink_price", price))
                 updated += 1
         except Exception as e:
             failed += 1

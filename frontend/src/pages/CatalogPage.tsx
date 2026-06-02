@@ -50,6 +50,17 @@ function bestPrice(item: any): number | null {
   return prices.length ? Math.min(...prices) : null
 }
 
+function bestRating(item: any): { rating: number; reviews: number | null } | null {
+  const candidates = [
+    { rating: item.ozon_rating, reviews: item.ozon_reviews },
+    { rating: item.citilink_rating, reviews: item.citilink_reviews },
+    { rating: item.wb_rating, reviews: item.wb_reviews },
+  ].filter((c) => c.rating != null)
+  if (!candidates.length) return null
+  candidates.sort((a, b) => (b.reviews ?? 0) - (a.reviews ?? 0))
+  return candidates[0]
+}
+
 function ImageBox({ url, name }: { url: string | null; name: string }) {
   const [failed, setFailed] = useState(false)
 
@@ -245,6 +256,14 @@ export default function CatalogPage() {
                           от {formatPrice(bp)}
                         </div>
                       )}
+                      {(() => {
+                        const r = bestRating(item)
+                        return r ? (
+                          <div className="text-xs text-amber-600 dark:text-amber-400 mb-2">
+                            ★ {r.rating}{r.reviews ? ` · ${r.reviews} отз.` : ''}
+                          </div>
+                        ) : null
+                      })()}
                       <div className="flex gap-1 flex-wrap">
                         {links.map((link) => (
                           <a

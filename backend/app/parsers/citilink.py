@@ -156,8 +156,11 @@ def _get_properties(product_url: str) -> tuple[dict, float | None]:
     # JSON-LD (schema.org Product) — stable source for price/availability/brand,
     # immune to Citilink's hashed CSS class names.
     ld = _extract_jsonld(page)
-    if ld and ld.get("brand") and not data.get("Бренд"):
-        data["Бренд"] = ld["brand"]
+    if ld:
+        if ld.get("brand") and not data.get("Бренд"):
+            data["Бренд"] = ld["brand"]
+        data["__rating__"] = ld.get("rating")
+        data["__reviews__"] = ld.get("reviews")
 
     # ── Out of stock ──────────────────────────────────────────────────────────
     # Prefer JSON-LD availability; fall back to a scoped text scan.
@@ -302,12 +305,28 @@ def _extract_jsonld(page) -> dict | None:
     brand = doc.get("brand")
     if isinstance(brand, dict):
         brand = brand.get("name")
+    agg = doc.get("aggregateRating") or {}
+    rating = None
+    try:
+        if agg.get("ratingValue") is not None:
+            rating = float(str(agg["ratingValue"]).replace(",", "."))
+    except (ValueError, TypeError):
+        rating = None
+    reviews = None
+    try:
+        rc = int(float(agg.get("ratingCount") or 0))
+        rv = int(float(agg.get("reviewCount") or 0))
+        reviews = max(rc, rv) or None
+    except (ValueError, TypeError):
+        reviews = None
     return {
         "price": price,
         "availability": offers.get("availability"),
         "brand": brand,
         "sku": doc.get("sku"),
         "name": doc.get("name"),
+        "rating": rating,
+        "reviews": reviews,
     }
 
 
@@ -617,6 +636,8 @@ def _run_parse(
                     continue
 
                 is_oos = props.pop("__oos__", False)
+                ci_rating = props.pop("__rating__", None)
+                ci_reviews = props.pop("__reviews__", None)
 
                 # If out of stock on Citilink: clear the stored price and skip
                 if is_oos:
@@ -657,6 +678,10 @@ def _run_parse(
                 if existing:
                     if citilink_price is not None:
                         existing.citilink_price = citilink_price
+                    if ci_rating is not None:
+                        existing.citilink_rating = ci_rating
+                    if ci_reviews is not None:
+                        existing.citilink_reviews = ci_reviews
                     for f, v in chars.items():
                         if v is not None and getattr(existing, f, None) is None:
                             setattr(existing, f, v)
@@ -671,6 +696,10 @@ def _run_parse(
                     matched.citilink_sku = citilink_sku
                     matched.citilink_url = citilink_url
                     matched.citilink_price = citilink_price
+                    if ci_rating is not None:
+                        matched.citilink_rating = ci_rating
+                    if ci_reviews is not None:
+                        matched.citilink_reviews = ci_reviews
                     if image_url and not matched.image_url:
                         matched.image_url = image_url
                     for f, v in chars.items():
@@ -686,6 +715,8 @@ def _run_parse(
                         citilink_sku=citilink_sku,
                         citilink_url=citilink_url,
                         citilink_price=citilink_price,
+                        citilink_rating=ci_rating,
+                        citilink_reviews=ci_reviews,
                         image_url=image_url,
                         **chars,
                     ))

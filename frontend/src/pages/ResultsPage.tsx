@@ -106,6 +106,18 @@ function ProductCard({ item, rank, onClick }: { item: RecommendResultItem; rank:
             от {formatPrice(item.best_price)}
           </div>
         )}
+        {(() => {
+          const cands = [
+            { r: item.ozon_rating, n: item.ozon_reviews },
+            { r: item.citilink_rating, n: item.citilink_reviews },
+            { r: item.wb_rating, n: item.wb_reviews },
+          ].filter((c) => c.r != null).sort((a, b) => (b.n ?? 0) - (a.n ?? 0))
+          return cands.length ? (
+            <div className="text-xs text-amber-600 dark:text-amber-400 mb-2">
+              ★ {cands[0].r}{cands[0].n ? ` · ${cands[0].n} отз.` : ''}
+            </div>
+          ) : null
+        })()}
         <div className="flex flex-col gap-1.5">
           {item.ozon_url && (
             <a href={item.ozon_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
