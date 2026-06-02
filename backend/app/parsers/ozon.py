@@ -613,6 +613,10 @@ def _run_parse(
                 existing.price = price
                 if image_url:
                     existing.image_url = image_url
+                # Self-heal a junk brand (e.g. an old review-count value) once the
+                # parser can now extract a real one.
+                if brand and _is_brand_like(brand) and not _is_brand_like(existing.brand or ""):
+                    existing.brand = brand
                 for field, value in chars.items():
                     if value is not None:
                         setattr(existing, field, value)
