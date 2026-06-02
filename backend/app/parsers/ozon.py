@@ -492,6 +492,25 @@ _PROMO_LABELS = re.compile(
     re.IGNORECASE,
 )
 
+def _is_brand_like(text: str) -> bool:
+    """A labelListV2 text item is a brand only if it is not a rating ('4.8'),
+    a review count ('9 874' — note thin/nbsp spaces), the seller label
+    ('Ozon'/'Оригинал'), or a promo badge."""
+    t = (text or "").strip()
+    if not t:
+        return False
+    # rating or review count → pure number after removing all whitespace
+    if re.match(r"^\d+([.,]\d+)?$", re.sub(r"\s+", "", t)):
+        return False
+    if "отзыв" in t.lower():
+        return False
+    if t.lower() in ("ozon", "озон", "оригинал"):
+        return False
+    if _PROMO_LABELS.search(t):
+        return False
+    return True
+
+
 def _get_brand(product: dict, name: str = "") -> str:
     for state in product.get("mainState", []):
         if state.get("type") == "labelListV2":
@@ -499,7 +518,7 @@ def _get_brand(product: dict, name: str = "") -> str:
             for item in items:
                 if item.get("type") == "text":
                     text = item.get("text", {}).get("text", "").strip()
-                    if text and not re.match(r"^\d+(\.\d+)?$", text) and not _PROMO_LABELS.search(text):
+                    if _is_brand_like(text):
                         return text
     # Fallback: first word of product name (skip numbers and Russian adjective-type words)
     if name:
