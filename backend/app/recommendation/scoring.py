@@ -69,7 +69,7 @@ def _budget_curve(ratio: float) -> float:
 
 def _flagship_curve(ratio: float) -> float:
     if ratio < 0.40:
-        return max(10.0, ratio / 0.40 * 40.0)         # up to 40
+        return max(10.0, ratio / 0.40 * 40.0)  # flat floor 10 below ~10% of budget, then up to 40
     if ratio < 0.75:
         return 40.0 + (ratio - 0.40) / 0.35 * 60.0    # 40 -> 100
     return 100.0
@@ -78,7 +78,7 @@ def _flagship_curve(ratio: float) -> float:
 def price_subscore(product, answers: dict) -> tuple[float, str]:
     budget = answers.get("budget")
     bp = best_price(product)
-    if budget is None or bp is None:
+    if budget is None or float(budget) <= 0 or bp is None:
         return 50.0, "бюджет не задан"
     ratio = bp / float(budget)
     priority = answers.get("priority", "balance")

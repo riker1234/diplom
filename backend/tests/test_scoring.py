@@ -47,3 +47,14 @@ def test_price_subscore_budget_prefers_cheap():
 
 def test_price_subscore_neutral_without_budget():
     assert scoring.price_subscore(_p(price=4200), {"priority": "balance"})[0] == 50.0
+
+
+def test_price_subscore_flagship_prefers_near_budget():
+    a = {"budget": 6000, "priority": "flagship"}
+    near, _ = scoring.price_subscore(_p(price=5200), a)   # ~87% -> top
+    cheap, _ = scoring.price_subscore(_p(price=900), a)   # 15% -> low
+    assert near > cheap
+
+
+def test_price_subscore_zero_budget_is_neutral():
+    assert scoring.price_subscore(_p(price=4200), {"budget": 0, "priority": "balance"})[0] == 50.0
