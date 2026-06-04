@@ -58,3 +58,22 @@ def test_price_subscore_flagship_prefers_near_budget():
 
 def test_price_subscore_zero_budget_is_neutral():
     assert scoring.price_subscore(_p(price=4200), {"budget": 0, "priority": "balance"})[0] == 50.0
+
+
+def test_specs_subscore_mouse_gaming_full_marks():
+    p = _p(weight_g=58, max_dpi=30000)
+    sub, label = scoring.specs_subscore(p, "mouse", {"use_case": "gaming"})
+    assert sub == 100.0
+    assert "58" in label
+
+
+def test_specs_subscore_normalises_over_known_only():
+    # only weight known -> not penalised for missing dpi
+    p = _p(weight_g=58, max_dpi=None)
+    sub, _ = scoring.specs_subscore(p, "mouse", {"use_case": "gaming"})
+    assert sub == 100.0
+
+
+def test_specs_subscore_neutral_when_no_data():
+    sub, _ = scoring.specs_subscore(_p(), "mouse", {"use_case": "gaming"})
+    assert sub == 50.0
