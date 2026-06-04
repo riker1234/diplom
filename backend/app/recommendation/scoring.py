@@ -45,3 +45,47 @@ def rating_subscore(product) -> tuple[float, str]:
     adj = r * v / (v + RATING_M) + RATING_C * RATING_M / (v + RATING_M)
     sub = _clamp((adj - RATING_FLOOR) * 100.0)
     return sub, f"{r:.1f} · {v} отз."
+
+
+def _balance_curve(ratio: float) -> float:
+    if ratio < 0.15:
+        return 20.0
+    if ratio <= 0.50:
+        return 20.0 + (ratio - 0.15) / 0.35 * 80.0   # 20 -> 100
+    if ratio <= 0.75:
+        return 100.0
+    if ratio <= 1.0:
+        return 100.0 - (ratio - 0.75) / 0.25 * 50.0   # 100 -> 50
+    return 50.0
+
+
+def _budget_curve(ratio: float) -> float:
+    if ratio <= 0.50:
+        return 100.0
+    if ratio <= 1.0:
+        return 100.0 - (ratio - 0.50) / 0.50 * 70.0   # 100 -> 30
+    return 30.0
+
+
+def _flagship_curve(ratio: float) -> float:
+    if ratio < 0.40:
+        return max(10.0, ratio / 0.40 * 40.0)         # up to 40
+    if ratio < 0.75:
+        return 40.0 + (ratio - 0.40) / 0.35 * 60.0    # 40 -> 100
+    return 100.0
+
+
+def price_subscore(product, answers: dict) -> tuple[float, str]:
+    budget = answers.get("budget")
+    bp = best_price(product)
+    if budget is None or bp is None:
+        return 50.0, "бюджет не задан"
+    ratio = bp / float(budget)
+    priority = answers.get("priority", "balance")
+    if priority == "budget":
+        sub = _budget_curve(ratio)
+    elif priority == "flagship":
+        sub = _flagship_curve(ratio)
+    else:
+        sub = _balance_curve(ratio)
+    return _clamp(sub), f"{int(ratio * 100)}% бюджета"
