@@ -1,6 +1,8 @@
 import re
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
+from app.recommendation import scoring
+from app.recommendation.scoring import best_price as _best_price, representative_rating
 from app.models.mouse import Mouse
 from app.models.keyboard import Keyboard
 from app.models.monitor import Monitor
@@ -17,84 +19,8 @@ _MODEL_MAP = {
     "mousepad": Mousepad,
 }
 
-_SWITCH_KEYWORDS: dict[str, list[str]] = {
-    "linear": ["Red", "Silver", "Speed", "Yellow", "Black", "линейн", "linear", "Cream", "Amber", "Mute"],
-    "tactile": ["Brown", "Clear", "Tactile", "тактильн", "White"],
-    "clicky": ["Blue", "Green", "Clicky", "кликающ", "Зелен", "Purple"],
-    "magnetic": ["Magnetic", "Hall", "магнитн", "halleffect"],
-}
-
-# Brand quality tiers per category.
-# Tier 3 = топовые игровые бренды, 2 = хорошие, 1 = бюджетные игровые,
-# 0 = нейтральные, -1 = дешёвые ноунейм
-_BRAND_TIER: dict[str, dict[str, int]] = {
-    "mouse": {
-        "logitech": 3, "razer": 3, "steelseries": 3, "zowie": 3,
-        "glorious": 3, "pulsar": 3, "vaxee": 3, "endgame gear": 3, "xlr8": 2,
-        "hyperx": 2, "corsair": 2, "asus": 2, "msi": 2, "roccat": 2, "cooler master": 2,
-        "nzxt": 2, "xtrfy": 2, "alienware": 2,
-        "bloody": 1, "a4tech": 1, "redragon": 1, "dareu": 1, "fantech": 1,
-        "ajazz": 1, "attack shark": 1, "acer": 1, "lenovo": 1, "viper": 1,
-        "defender": 0, "trust": 0, "microsoft": 0, "oklick": 0,
-        "gembird": -1, "herler": -1, "smartbuy": -1, "sven": -1,
-    },
-    "keyboard": {
-        "logitech": 3, "razer": 3, "steelseries": 3, "keychron": 3,
-        "ducky": 3, "leopold": 3, "varmilo": 3, "hhkb": 3, "realforce": 3,
-        "hyperx": 2, "corsair": 2, "asus": 2, "cooler master": 2, "roccat": 2,
-        "glorious": 2, "epomaker": 2, "nzxt": 2, "msi": 2,
-        "bloody": 1, "a4tech": 1, "redragon": 1, "dareu": 1,
-        "royal kludge": 1, "ajazz": 1, "aula": 1, "tecware": 1, "akko": 1,
-        "defender": 0, "oklick": 0, "microsoft": 0,
-        "gembird": -1, "smartbuy": -1,
-    },
-    "monitor": {
-        "lg": 3, "samsung": 3, "asus": 3, "dell": 3, "benq": 3, "viewsonic": 3,
-        "msi": 2, "gigabyte": 2, "philips": 2, "iiyama": 2, "aoc": 2, "eizo": 3,
-        "acer": 2, "hp": 1, "lenovo": 1,
-    },
-    "headphones": {
-        "logitech": 3, "razer": 3, "steelseries": 3, "hyperx": 3,
-        "sennheiser": 3, "beyerdynamic": 3, "sony": 3, "bose": 3, "audio-technica": 3,
-        "corsair": 2, "asus": 2, "roccat": 2, "jbl": 2, "jabra": 2, "skullcandy": 2,
-        "redragon": 1, "bloody": 1, "dareu": 1, "sven": 1, "a4tech": 1,
-        "defender": 0, "oklick": 0,
-        "gembird": -1, "smartbuy": -1,
-    },
-    "microphone": {
-        "blue": 3, "rode": 3, "sennheiser": 3, "shure": 3, "elgato": 3, "audio-technica": 3,
-        "hyperx": 3, "razer": 2, "logitech": 2, "maono": 2, "fifine": 2, "samson": 2,
-        "trust gaming": 1, "a4tech": 1,
-        "defender": 0, "gembird": -1,
-    },
-    "mousepad": {
-        "steelseries": 3, "logitech": 3, "razer": 3, "glorious": 3, "endgame gear": 3,
-        "artisan": 3, "corsair": 2, "hyperx": 2, "asus": 2, "msi": 2, "roccat": 2,
-        "redragon": 1, "bloody": 1, "a4tech": 1,
-        "defender": 0, "gembird": -1,
-    },
-}
-
 # Minimum price ratio relative to budget per priority mode
 _MIN_PRICE_RATIO = {"budget": 0.05, "balance": 0.15, "flagship": 0.40}
-
-
-def _best_price(product) -> float | None:
-    prices = [p for p in [product.price, product.wb_price, product.citilink_price] if p is not None]
-    return min(prices) if prices else None
-
-
-def _brand_score(product, category: str) -> int:
-    brand = (product.brand or "").lower().strip()
-    if not brand:
-        return 0
-    tier_map = _BRAND_TIER.get(category, {})
-    if brand in tier_map:
-        return tier_map[brand]
-    for key, val in tier_map.items():
-        if key in brand:  # e.g. "logitech" in "logitech g pro series"
-            return val
-    return 0
 
 
 def _parse_max_dim(size_str: str) -> int | None:
@@ -120,6 +46,22 @@ def _filter_mousepad_size(products: list, size_pref: str | None) -> list:
     return result
 
 
+def _compute_brand_avgs(db: Session, model) -> dict[str, tuple[float, int]]:
+    """Per-brand review-weighted average rating over the whole category."""
+    acc: dict[str, list[float]] = {}  # brand_lower -> [sum_weighted, sum_reviews]
+    for p in db.query(model).all():
+        r, v = representative_rating(p)
+        if r is None or not v:
+            continue
+        b = (p.brand or "").lower().strip()
+        if not b:
+            continue
+        a = acc.setdefault(b, [0.0, 0.0])
+        a[0] += r * v
+        a[1] += v
+    return {b: (s / v, int(v)) for b, (s, v) in acc.items() if v > 0}
+
+
 def recommend(category: str, answers: dict, db: Session) -> list[dict]:
     model = _MODEL_MAP[category]
     products = _build_query(category, answers, db, model).all()
@@ -127,19 +69,17 @@ def recommend(category: str, answers: dict, db: Session) -> list[dict]:
     if category == "mousepad":
         products = _filter_mousepad_size(products, answers.get("size"))
 
+    brand_avgs = _compute_brand_avgs(db, model)
     scored = [
-        (p, *_score(p, category, answers))
+        (p, *scoring.score_product(p, category, answers, brand_avgs))
         for p in products
     ]
     priority = answers.get("priority", "balance")
     if priority == "flagship":
-        # Flagship: при равных баллах — дороже лучше
         scored.sort(key=lambda x: (-x[1], -(_best_price(x[0]) or 0)))
     elif priority == "budget":
-        # Budget: при равных баллах — дешевле лучше
         scored.sort(key=lambda x: (-x[1], _best_price(x[0]) or float("inf")))
     else:
-        # Balance: при равных баллах — ближе к середине бюджета лучше
         budget_f = float(answers.get("budget") or 0)
         def balance_key(x):
             price = _best_price(x[0]) or 0
@@ -364,138 +304,3 @@ def _build_query(category: str, answers: dict, db: Session, model):
     return query
 
 
-def _score(product, category: str, answers: dict) -> tuple[int, list[dict]]:
-    """Returns (total_score, breakdown_list)."""
-    score = 0
-    breakdown: list[dict] = []
-    budget = answers.get("budget")
-    priority = answers.get("priority", "balance")
-    use_case = answers.get("use_case")
-    best = _best_price(product)
-
-    def add(pts: int, label: str) -> None:
-        nonlocal score
-        if pts == 0:
-            return
-        score += pts
-        breakdown.append({"label": label, "points": pts, "positive": pts > 0})
-
-    # ── 1. Репутация бренда ────────────────────────────────────────────────────
-    brand_pts = _brand_score(product, category)
-    brand_multiplier = {"budget": 0, "balance": 1, "flagship": 2}
-    final_brand = brand_pts * brand_multiplier.get(priority, 1)
-    if final_brand != 0:
-        brand_name = (product.brand or "").strip() or "бренд"
-        tier_labels = {3: "топ-уровень", 2: "хороший бренд", 1: "бюджетный игровой", -1: "ноунейм"}
-        tier_label = tier_labels.get(brand_pts, "")
-        add(final_brand, f"Бренд {brand_name}{' — ' + tier_label if tier_label else ''}")
-
-    # ── 2. Использование бюджета ───────────────────────────────────────────────
-    if budget is not None and best is not None:
-        ratio = best / float(budget)
-        pct = int(ratio * 100)
-        if priority == "flagship":
-            if ratio >= 0.75:
-                add(6, f"Цена {pct}% бюджета — максимум для флагмана")
-            elif ratio >= 0.55:
-                add(4, f"Цена {pct}% бюджета — оптимально для флагмана")
-            elif ratio >= 0.40:
-                add(1, f"Цена {pct}% бюджета — в рамках флагмана")
-            elif ratio < 0.40:
-                add(-4, f"Цена {pct}% бюджета — слишком дёшево для флагмана")
-        elif priority == "budget":
-            if 0.15 <= ratio <= 0.50:
-                add(3, f"Цена {pct}% бюджета — хорошая экономия")
-            elif ratio <= 0.70:
-                add(1, f"Цена {pct}% бюджета")
-        else:
-            if 0.30 <= ratio <= 0.85:
-                add(3, f"Цена {pct}% бюджета — оптимальный диапазон")
-            elif ratio < 0.15:
-                add(-3, f"Цена {pct}% бюджета — слишком дёшево")
-
-    # ── 3. Качество характеристик ──────────────────────────────────────────────
-
-    if category == "mouse":
-        if use_case == "gaming":
-            if product.weight_g is not None:
-                if product.weight_g <= 60:
-                    add(4, f"Вес {product.weight_g} г — ультралёгкая")
-                elif product.weight_g <= 80:
-                    add(3, f"Вес {product.weight_g} г — лёгкая для гейминга")
-                elif product.weight_g <= 100:
-                    add(1, f"Вес {product.weight_g} г — приемлемый")
-            if product.max_dpi is not None:
-                if product.max_dpi >= 25000:
-                    add(3, f"Сенсор {product.max_dpi} DPI — премиум")
-                elif product.max_dpi >= 12000:
-                    add(2, f"Сенсор {product.max_dpi} DPI — высокий")
-                elif product.max_dpi >= 6000:
-                    add(1, f"Сенсор {product.max_dpi} DPI")
-        elif use_case == "office":
-            if product.weight_g is not None and 80 <= product.weight_g <= 130:
-                add(1, f"Вес {product.weight_g} г — удобно для работы")
-
-    elif category == "keyboard":
-        switches_pref = answers.get("switches")
-        if switches_pref and switches_pref != "any" and product.switches:
-            keywords = _SWITCH_KEYWORDS.get(switches_pref, [])
-            if any(kw.lower() in product.switches.lower() for kw in keywords):
-                add(3, f"Переключатели {product.switches} — соответствуют выбору")
-        if use_case == "gaming" and product.form_factor and any(
-            kw in product.form_factor.lower() for kw in ("tkl", "полноразмерная", "full")
-        ):
-            add(1, f"Форм-фактор {product.form_factor} — подходит для игр")
-        if product.key_count is not None and product.key_count >= 100 and use_case != "gaming":
-            add(1, f"{product.key_count} клавиш — полный набор")
-
-    elif category == "monitor":
-        if use_case == "gaming":
-            if product.refresh_rate_hz is not None:
-                if product.refresh_rate_hz >= 360:
-                    add(6, f"{product.refresh_rate_hz} Гц — топ для гейминга")
-                elif product.refresh_rate_hz >= 240:
-                    add(5, f"{product.refresh_rate_hz} Гц — отлично для игр")
-                elif product.refresh_rate_hz >= 165:
-                    add(4, f"{product.refresh_rate_hz} Гц — хорошо для игр")
-                elif product.refresh_rate_hz >= 144:
-                    add(3, f"{product.refresh_rate_hz} Гц — подходит для гейминга")
-        elif use_case == "work":
-            if product.matrix_type and "ips" in product.matrix_type.lower():
-                add(3, f"Матрица {product.matrix_type} — отличная цветопередача")
-            if product.resolution and "3840" in product.resolution:
-                add(2, "Разрешение 4K — высокая детализация")
-            if product.refresh_rate_hz is not None and product.refresh_rate_hz >= 144:
-                add(-2, f"{product.refresh_rate_hz} Гц — лишнее для работы")
-            if product.name and "игров" in product.name.lower():
-                add(-2, "Игровая модель — не оптимальна для работы")
-        elif use_case == "both":
-            if product.matrix_type and "ips" in product.matrix_type.lower():
-                add(2, f"Матрица {product.matrix_type} — хорошая цветопередача")
-            if product.refresh_rate_hz is not None and product.refresh_rate_hz >= 144:
-                add(2, f"{product.refresh_rate_hz} Гц — универсальный выбор")
-
-    elif category == "headphones":
-        if use_case == "gaming" and product.has_microphone:
-            add(2, "Встроенный микрофон — нужен для игр")
-        if use_case == "music" and not product.has_microphone:
-            add(1, "Без микрофона — чистый звук для музыки")
-        if use_case == "calls" and product.has_microphone:
-            add(3, "Встроенный микрофон — необходим для звонков")
-
-    elif category == "microphone":
-        if use_case == "streaming" and product.mic_type and "конденсаторный" in product.mic_type.lower():
-            add(2, "Конденсаторный микрофон — идеален для стриминга")
-        if use_case == "calls":
-            iface = (product.interface or "") + " " + (product.connection_types or "")
-            if "usb" in iface.lower():
-                add(2, "USB подключение — plug & play для звонков")
-
-    elif category == "mousepad":
-        rgb_pref = answers.get("rgb")
-        if rgb_pref == "yes" and product.has_rgb:
-            add(2, "RGB-подсветка — соответствует выбору")
-        elif rgb_pref == "no" and not product.has_rgb:
-            add(1, "Без RGB — соответствует выбору")
-
-    return score, breakdown
