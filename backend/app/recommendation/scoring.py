@@ -140,7 +140,7 @@ def _specs(product, category: str, answers: dict):
             crit(True, 3.0 if match else 0.0, 3.0, f"переключатели {sw}")
         ff = getattr(product, "form_factor", None)
         if use_case == "gaming" and ff is not None:
-            match = any(k in ff.lower() for k in ("tkl", "полноразмерная", "full"))
+            match = any(k in ff.lower() for k in ("tkl", "полноразмерная"))
             crit(True, 1.0 if match else 0.0, 1.0, f"форм-фактор {ff}")
         km = getattr(product, "keycap_material", None)
         if km is not None:
@@ -188,15 +188,15 @@ def _specs(product, category: str, answers: dict):
                 crit(True, 1.0 if "кардио" in dirn.lower() else 0.0, 1.0, f"направленность {dirn}")
         elif use_case == "calls":
             iface = (getattr(product, "interface", "") or "") + " " + (getattr(product, "connection_types", "") or "")
-            crit(True, 2.0 if "usb" in iface.lower() else 0.0, 2.0, "USB plug & play")
+            crit(bool(iface.strip()), 2.0 if "usb" in iface.lower() else 0.0, 2.0, "USB plug & play")
 
     elif category == "mousepad":
         rgb_pref = answers.get("rgb")
         rgb = getattr(product, "has_rgb", None)
         if rgb_pref == "yes":
-            crit(True, 2.0 if rgb else 0.0, 2.0, "RGB есть")
+            crit(rgb is not None, 2.0 if rgb else 0.0, 2.0, "RGB есть")
         elif rgb_pref == "no":
-            crit(True, 1.0 if not rgb else 0.0, 1.0, "без RGB")
+            crit(rgb is not None, 1.0 if not rgb else 0.0, 1.0, "без RGB")
 
     return earned, known_max, labels
 

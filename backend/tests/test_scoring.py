@@ -77,3 +77,13 @@ def test_specs_subscore_normalises_over_known_only():
 def test_specs_subscore_neutral_when_no_data():
     sub, _ = scoring.specs_subscore(_p(), "mouse", {"use_case": "gaming"})
     assert sub == 50.0
+
+
+def test_specs_subscore_mousepad_skips_unknown_rgb():
+    sub, _ = scoring.specs_subscore(_p(), "mousepad", {"rgb": "yes"})
+    assert sub == 50.0
+
+
+def test_specs_subscore_microphone_calls_skips_unknown_connection():
+    sub, _ = scoring.specs_subscore(_p(), "microphone", {"use_case": "calls"})
+    assert sub == 50.0
