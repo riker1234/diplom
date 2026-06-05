@@ -49,19 +49,19 @@ def test_questions_response_valid():
 from app.recommendation.questions import get_questions, SUPPORTED_CATEGORIES
 
 
-def test_get_questions_mouse_returns_3_questions():
+def test_get_questions_mouse_returns_4_questions():
     questions = get_questions("mouse")
-    assert len(questions) == 3
-
-
-def test_get_questions_keyboard_returns_4_questions():
-    questions = get_questions("keyboard")
     assert len(questions) == 4
 
 
-def test_get_questions_monitor_returns_3_questions():
+def test_get_questions_keyboard_returns_5_questions():
+    questions = get_questions("keyboard")
+    assert len(questions) == 5
+
+
+def test_get_questions_monitor_returns_4_questions():
     questions = get_questions("monitor")
-    assert len(questions) == 3
+    assert len(questions) == 4
 
 
 def test_get_questions_unknown_returns_none():
@@ -75,52 +75,52 @@ def test_supported_categories():
 def test_mouse_questions_have_required_ids():
     questions = get_questions("mouse")
     ids = [q["id"] for q in questions]
-    assert ids == ["use_case", "wireless", "budget"]
+    assert ids == ["use_case", "wireless", "priority", "budget"]
 
 
 def test_keyboard_questions_have_required_ids():
     questions = get_questions("keyboard")
     ids = [q["id"] for q in questions]
-    assert ids == ["use_case", "form_factor", "switches", "budget"]
+    assert ids == ["use_case", "form_factor", "switches", "priority", "budget"]
 
 
 def test_monitor_questions_have_required_ids():
     questions = get_questions("monitor")
     ids = [q["id"] for q in questions]
-    assert ids == ["use_case", "size", "budget"]
+    assert ids == ["use_case", "size", "priority", "budget"]
 
 
-def test_get_questions_headphones_returns_4_questions():
+def test_get_questions_headphones_returns_5_questions():
     questions = get_questions("headphones")
-    assert len(questions) == 4
+    assert len(questions) == 5
 
 
-def test_get_questions_microphone_returns_3_questions():
+def test_get_questions_microphone_returns_4_questions():
     questions = get_questions("microphone")
-    assert len(questions) == 3
-
-
-def test_get_questions_mousepad_returns_4_questions():
-    questions = get_questions("mousepad")
     assert len(questions) == 4
+
+
+def test_get_questions_mousepad_returns_5_questions():
+    questions = get_questions("mousepad")
+    assert len(questions) == 5
 
 
 def test_headphones_questions_have_required_ids():
     questions = get_questions("headphones")
     ids = [q["id"] for q in questions]
-    assert ids == ["use_case", "has_microphone", "connection", "budget"]
+    assert ids == ["use_case", "construction_type", "connection", "priority", "budget"]
 
 
 def test_microphone_questions_have_required_ids():
     questions = get_questions("microphone")
     ids = [q["id"] for q in questions]
-    assert ids == ["use_case", "connection", "budget"]
+    assert ids == ["use_case", "connection", "priority", "budget"]
 
 
 def test_mousepad_questions_have_required_ids():
     questions = get_questions("mousepad")
     ids = [q["id"] for q in questions]
-    assert ids == ["size", "hardness", "rgb", "budget"]
+    assert ids == ["size", "hardness", "rgb", "priority", "budget"]
 
 
 # ── Интеграционные тесты API ──────────────────────────────────────────────────
@@ -149,24 +149,24 @@ app.dependency_overrides[get_db] = _override_get_db
 _client = TestClient(app)
 
 
-def test_questions_endpoint_mouse_returns_3():
+def test_questions_endpoint_mouse_returns_4():
     resp = _client.get("/recommend/questions/mouse")
     assert resp.status_code == 200
     data = resp.json()
     assert data["category"] == "mouse"
-    assert len(data["questions"]) == 3
+    assert len(data["questions"]) == 4
 
 
-def test_questions_endpoint_keyboard_returns_4():
+def test_questions_endpoint_keyboard_returns_5():
     resp = _client.get("/recommend/questions/keyboard")
     assert resp.status_code == 200
-    assert len(resp.json()["questions"]) == 4
+    assert len(resp.json()["questions"]) == 5
 
 
-def test_questions_endpoint_monitor_returns_3():
+def test_questions_endpoint_monitor_returns_4():
     resp = _client.get("/recommend/questions/monitor")
     assert resp.status_code == 200
-    assert len(resp.json()["questions"]) == 3
+    assert len(resp.json()["questions"]) == 4
 
 
 def test_questions_endpoint_unknown_category_404():
@@ -212,22 +212,22 @@ def test_recommend_response_shape():
     assert "results" in data
 
 
-def test_questions_endpoint_headphones_returns_4():
+def test_questions_endpoint_headphones_returns_5():
     resp = _client.get("/recommend/questions/headphones")
     assert resp.status_code == 200
-    assert len(resp.json()["questions"]) == 4
+    assert len(resp.json()["questions"]) == 5
 
 
-def test_questions_endpoint_microphone_returns_3():
+def test_questions_endpoint_microphone_returns_4():
     resp = _client.get("/recommend/questions/microphone")
     assert resp.status_code == 200
-    assert len(resp.json()["questions"]) == 3
+    assert len(resp.json()["questions"]) == 4
 
 
-def test_questions_endpoint_mousepad_returns_4():
+def test_questions_endpoint_mousepad_returns_5():
     resp = _client.get("/recommend/questions/mousepad")
     assert resp.status_code == 200
-    assert len(resp.json()["questions"]) == 4
+    assert len(resp.json()["questions"]) == 5
 
 
 def test_recommend_headphones_empty_db():
