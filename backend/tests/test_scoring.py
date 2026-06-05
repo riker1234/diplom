@@ -87,3 +87,16 @@ def test_specs_subscore_mousepad_skips_unknown_rgb():
 def test_specs_subscore_microphone_calls_skips_unknown_connection():
     sub, _ = scoring.specs_subscore(_p(), "microphone", {"use_case": "calls"})
     assert sub == 50.0
+
+
+def test_brand_subscore_from_data():
+    import pytest
+    brand_avgs = {"logitech": (4.7, 1200), "noname": (4.9, 5)}
+    high, lbl = scoring.brand_subscore(_p(brand="Logitech"), brand_avgs)
+    assert high == pytest.approx(70.0)  # (4.7-4.0)*100
+    assert "4.7" in lbl
+    # too few reviews -> neutral, not the inflated 4.9
+    low, _ = scoring.brand_subscore(_p(brand="NoName"), brand_avgs)
+    assert low == 50.0
+    # unknown brand -> neutral
+    assert scoring.brand_subscore(_p(brand="Ghost"), brand_avgs)[0] == 50.0

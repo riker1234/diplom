@@ -207,3 +207,14 @@ def specs_subscore(product, category: str, answers: dict) -> tuple[float, str]:
         return 50.0, "нет данных по ТТХ"
     sub = _clamp(earned / known_max * 100.0)
     return sub, ", ".join(labels) if labels else "ТТХ ниже нормы"
+
+
+def brand_subscore(product, brand_avgs: dict) -> tuple[float, str]:
+    """brand_avgs: {brand_lower: (avg_rating, total_reviews)} for the category."""
+    name = (getattr(product, "brand", None) or "").strip()
+    key = name.lower()
+    entry = brand_avgs.get(key)
+    if not entry or entry[1] < BRAND_MIN_REVIEWS:
+        return 50.0, f"{name or 'бренд'}: мало данных"
+    avg, _total = entry
+    return _clamp((avg - RATING_FLOOR) * 100.0), f"{name}: ср. {avg:.1f}"
