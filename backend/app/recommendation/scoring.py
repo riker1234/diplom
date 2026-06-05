@@ -218,3 +218,41 @@ def brand_subscore(product, brand_avgs: dict) -> tuple[float, str]:
         return 50.0, f"{name or 'бренд'}: мало данных"
     avg, _total = entry
     return _clamp((avg - RATING_FLOOR) * 100.0), f"{name}: ср. {avg:.1f}"
+
+
+WEIGHTS: dict[str, dict[str, float]] = {
+    "budget":   {"specs": 0.30, "rating": 0.30, "brand": 0.05, "price": 0.35},
+    "balance":  {"specs": 0.40, "rating": 0.30, "brand": 0.12, "price": 0.18},
+    "flagship": {"specs": 0.45, "rating": 0.20, "brand": 0.20, "price": 0.15},
+}
+
+
+def score_product(product, category: str, answers: dict,
+                  brand_avgs: dict) -> tuple[int, list[dict]]:
+    priority = answers.get("priority", "balance")
+    w = WEIGHTS.get(priority, WEIGHTS["balance"])
+
+    specs, specs_lbl = specs_subscore(product, category, answers)
+    rating, rating_lbl = rating_subscore(product)
+    brand, brand_lbl = brand_subscore(product, brand_avgs)
+    price, price_lbl = price_subscore(product, answers)
+
+    parts = [
+        ("ТТХ", specs, w["specs"], specs_lbl),
+        ("Рейтинг", rating, w["rating"], rating_lbl),
+        ("Бренд", brand, w["brand"], brand_lbl),
+        ("Цена", price, w["price"], price_lbl),
+    ]
+
+    total = 0.0
+    breakdown: list[dict] = []
+    for name, sub, weight, lbl in parts:
+        contrib = sub * weight
+        total += contrib
+        pts = round(contrib)
+        breakdown.append({
+            "label": f"{name} — {lbl}",
+            "points": pts,
+            "positive": pts >= 0,
+        })
+    return round(total), breakdown

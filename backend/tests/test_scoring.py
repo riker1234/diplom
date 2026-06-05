@@ -100,3 +100,22 @@ def test_brand_subscore_from_data():
     assert low == 50.0
     # unknown brand -> neutral
     assert scoring.brand_subscore(_p(brand="Ghost"), brand_avgs)[0] == 50.0
+
+
+def test_score_product_razer_loses_to_higher_rated_midbrand():
+    answers = {"use_case": "gaming", "priority": "balance", "budget": 6000}
+    brand_avgs = {"razer": (4.5, 5000), "midbrand": (4.6, 3000)}
+    razer = _p(brand="Razer", price=5500, weight_g=58, max_dpi=30000,
+               ozon_rating=4.4, ozon_reviews=1600)
+    mid = _p(brand="MidBrand", price=4200, weight_g=55, max_dpi=26000,
+             ozon_rating=4.8, ozon_reviews=900)
+    s_razer, br_razer = scoring.score_product(razer, "mouse", answers, brand_avgs)
+    s_mid, _ = scoring.score_product(mid, "mouse", answers, brand_avgs)
+    assert 0 <= s_razer <= 100 and 0 <= s_mid <= 100
+    assert s_mid > s_razer
+    assert len(br_razer) == 4  # one breakdown item per component
+
+
+def test_weights_sum_to_one():
+    for w in scoring.WEIGHTS.values():
+        assert abs(sum(w.values()) - 1.0) < 1e-9
