@@ -194,11 +194,11 @@ def test_map_headphones_no_mic_defaults_false():
 
 def test_map_headphones_connection_wireless():
     result = _map_headphones([{"name": "Подключение", "value": "Беспроводное"}])
-    assert result["connection_types"] == "Беспроводное"
+    assert result["connection_types"] == "беспроводная"
 
 def test_map_headphones_connection_bt():
     result = _map_headphones([{"name": "Тип беспроводной связи", "value": "Bluetooth, Радиоканал"}])
-    assert result["connection_types"] == "Bluetooth, Радиоканал"
+    assert result["connection_types"] == "беспроводная"
 
 def test_map_headphones_construction():
     result = _map_headphones([{"name": "Конструкция наушников", "value": "Полноразмерные"}])
@@ -236,7 +236,7 @@ def test_map_microphone_type():
 
 def test_map_microphone_connection():
     result = _map_microphone([{"name": "Тип подключения", "value": "USB"}])
-    assert result["connection_types"] == "USB"
+    assert result["connection_types"] == "проводная"
 
 def test_map_microphone_sample_rate():
     result = _map_microphone([{"name": "Частота дискретизации", "value": "48000 Гц"}])
