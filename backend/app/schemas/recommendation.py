@@ -63,6 +63,7 @@ class RecommendResultItem(BaseModel):
     has_microphone: Optional[bool] = None
     impedance_ohm: Optional[int] = None
     frequency_response: Optional[str] = None
+    noise_cancellation: Optional[str] = None
     # Microphone
     mic_type: Optional[str] = None
     directionality: Optional[str] = None

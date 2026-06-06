@@ -106,9 +106,14 @@ export default function ProductModal({ item, onClose }: Props) {
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
+  // У мыши form_factor ("Классическая") малоинформативен, а его подсказка —
+  // клавиатурная. Прячем его только для мыши (определяем по мышиным полям).
+  const isMouse = item.sensor != null || item.max_dpi != null || item.button_count != null
+
   const specs = Object.entries(item)
     .filter(([key, val]) => {
       if (SKIP_FIELDS.has(key)) return false
+      if (isMouse && key === 'form_factor') return false
       if (val === null || val === undefined || val === '') return false
       return FIELD_LABELS[key] !== undefined
     })

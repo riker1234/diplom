@@ -137,6 +137,7 @@ def recommend(category: str, answers: dict, db: Session) -> list[dict]:
             "has_microphone":     _attr(p, "has_microphone"),
             "impedance_ohm":      _attr(p, "impedance_ohm"),
             "frequency_response": _attr(p, "frequency_response"),
+            "noise_cancellation": _attr(p, "noise_cancellation"),
             "mic_type":           _attr(p, "mic_type"),
             "directionality":     _attr(p, "directionality"),
             "frequency_range":    _attr(p, "frequency_range"),
