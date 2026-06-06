@@ -78,7 +78,7 @@ export const CHAR_DESCRIPTIONS: Record<string, CharDescription> = {
   },
   matrix_type: {
     short: 'Тип матрицы',
-    detail: 'IPS — лучшие цвета и углы обзора. VA — высокая контрастность. TN — быстрый отклик, слабые цвета.',
+    detail: 'IPS — лучшие цвета и углы обзора. VA — высокая контрастность. TN — быстрый отклик, слабые цвета. OLED/QD-OLED — идеальный чёрный и контраст, самый быстрый отклик; премиум-сегмент.',
   },
   response_time_ms: {
     short: 'Время отклика пикселя',
