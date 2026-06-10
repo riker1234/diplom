@@ -1,12 +1,16 @@
 import { useNavigate } from 'react-router-dom'
+import {
+  MouseIcon, KeyboardIcon, MonitorIcon,
+  HeadphonesIcon, MicrophoneIcon, MousepadIcon,
+} from '../components/icons'
 
 const CATEGORIES = [
-  { id: 'mouse', label: 'Мышь', icon: '🖱️', desc: 'Игровые и офисные мыши' },
-  { id: 'keyboard', label: 'Клавиатура', icon: '⌨️', desc: 'Механические и мембранные' },
-  { id: 'monitor', label: 'Монитор', icon: '🖥️', desc: 'Игровые и рабочие мониторы' },
-  { id: 'headphones', label: 'Наушники', icon: '🎧', desc: 'Гарнитуры и наушники' },
-  { id: 'microphone', label: 'Микрофон', icon: '🎤', desc: 'USB и XLR микрофоны' },
-  { id: 'mousepad', label: 'Коврик', icon: '🟦', desc: 'Мягкие и жёсткие коврики' },
+  { id: 'mouse', label: 'Мышь', Icon: MouseIcon, desc: 'Игровые и офисные мыши' },
+  { id: 'keyboard', label: 'Клавиатура', Icon: KeyboardIcon, desc: 'Механические и мембранные' },
+  { id: 'monitor', label: 'Монитор', Icon: MonitorIcon, desc: 'Игровые и рабочие мониторы' },
+  { id: 'headphones', label: 'Наушники', Icon: HeadphonesIcon, desc: 'Гарнитуры и наушники' },
+  { id: 'microphone', label: 'Микрофон', Icon: MicrophoneIcon, desc: 'USB и XLR микрофоны' },
+  { id: 'mousepad', label: 'Коврик', Icon: MousepadIcon, desc: 'Мягкие и жёсткие коврики' },
 ]
 
 export default function HomePage() {
@@ -30,7 +34,7 @@ export default function HomePage() {
             onClick={() => navigate(`/quiz/${cat.id}`)}
             className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 text-left hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all group cursor-pointer"
           >
-            <div className="text-4xl mb-3">{cat.icon}</div>
+            <div className="mb-3"><cat.Icon className="w-10 h-10" /></div>
             <div className="font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 text-lg transition-colors">
               {cat.label}
             </div>

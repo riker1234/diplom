@@ -32,13 +32,13 @@ function ImageBox({ url, name }: { url: string | null; name: string }) {
   const [failed, setFailed] = useState(false)
   if (!url || failed) {
     return (
-      <div className="h-44 bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0">
+      <div className="aspect-[4/3] sm:aspect-auto sm:h-44 bg-gray-100 dark:bg-gray-700 flex items-center justify-center shrink-0">
         <span className="text-gray-300 dark:text-gray-500 text-sm">Нет фото</span>
       </div>
     )
   }
   return (
-    <div className="h-44 bg-gray-50 dark:bg-gray-700 flex items-center justify-center p-4 shrink-0">
+    <div className="aspect-[4/3] sm:aspect-auto sm:h-44 bg-gray-50 dark:bg-gray-700 flex items-center justify-center p-4 shrink-0">
       <img src={url} alt={name} className="max-h-full max-w-full object-contain" onError={() => setFailed(true)} />
     </div>
   )
@@ -205,7 +205,7 @@ export default function ResultsPage() {
           <button onClick={() => navigate(-1)} className="text-blue-600 hover:underline">Попробовать снова</button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
           {results.map((item, index) => (
             <ProductCard key={item.id} item={item} rank={index + 1} onClick={() => setSelected(item)} />
           ))}

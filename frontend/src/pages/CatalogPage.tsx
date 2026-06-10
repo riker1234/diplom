@@ -66,14 +66,14 @@ function ImageBox({ url, name }: { url: string | null; name: string }) {
 
   if (!url || failed) {
     return (
-      <div className="h-36 bg-gray-100 flex items-center justify-center shrink-0">
+      <div className="aspect-[4/3] sm:aspect-auto sm:h-36 bg-gray-100 flex items-center justify-center shrink-0">
         <span className="text-gray-300 text-sm">Нет фото</span>
       </div>
     )
   }
 
   return (
-    <div className="h-36 bg-gray-50 flex items-center justify-center p-3 shrink-0">
+    <div className="aspect-[4/3] sm:aspect-auto sm:h-36 bg-gray-50 flex items-center justify-center p-3 shrink-0">
       <img
         src={url}
         alt={name}
@@ -227,7 +227,7 @@ export default function CatalogPage() {
           {filtered.length === 0 ? (
             <div className="text-center py-16 text-gray-400">Товары не найдены</div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
               {filtered.map((item) => {
                 const bp = bestPrice(item)
                 const links = [
