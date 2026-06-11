@@ -99,9 +99,20 @@ def _fetch_citilink(page, citilink_url: str) -> dict:
         wait_until="load",
         timeout=NAV_TIMEOUT_MS,
     )
-    ld = _extract_jsonld(page) or {}
+    ld = _extract_jsonld(page)
+    if not ld:
+        # Страница без JSON-LD = блокировка/смена вёрстки. Это ошибка чтения,
+        # а НЕ «нет в наличии» — данные товара трогать нельзя.
+        raise RuntimeError("citilink: JSON-LD not found (blocked or layout changed)")
+
     availability = (ld.get("availability") or "")
-    in_stock = "InStock" in availability if availability else ld.get("price") is not None
+    if availability:
+        in_stock = "InStock" in availability
+    elif ld.get("price") is not None:
+        in_stock = True
+    else:
+        raise RuntimeError("citilink: JSON-LD has neither availability nor price")
+
     return {
         "status": "ok" if in_stock else "oos",
         "price": ld.get("price"),
