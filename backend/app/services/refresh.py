@@ -10,6 +10,7 @@ import logging
 import os
 import re
 import threading
+from urllib.parse import unquote, urlsplit
 
 from sqlalchemy import func
 
@@ -24,6 +25,26 @@ NAV_TIMEOUT_MS = 30_000
 # План Б против гео-блокировок: российский прокси для запросов к маркетплейсам.
 # Формат: http://user:pass@host:port (задаётся в переменных окружения Railway).
 REFRESH_PROXY_URL = os.environ.get("REFRESH_PROXY_URL", "")
+
+
+def _proxy_settings(url: str) -> dict | None:
+    """Разбирает http://user:pass@host:port в формат Playwright.
+
+    Chromium игнорирует логин/пароль, встроенные в URL, поэтому Playwright
+    требует их отдельными полями username/password.
+    """
+    if not url:
+        return None
+    u = urlsplit(url)
+    if not u.hostname:
+        logger.warning("REFRESH_PROXY_URL задан, но не распарсился: %r", url)
+        return None
+    proxy: dict = {"server": f"{u.scheme or 'http'}://{u.hostname}:{u.port or 8080}"}
+    if u.username:
+        proxy["username"] = unquote(u.username)
+    if u.password:
+        proxy["password"] = unquote(u.password)
+    return proxy
 
 
 def _parse_rub(s: str | None) -> float | None:
@@ -142,8 +163,9 @@ def refresh_product(product, db) -> dict:
                     "--disable-dev-shm-usage",
                 ],
             }
-            if REFRESH_PROXY_URL:
-                launch_kwargs["proxy"] = {"server": REFRESH_PROXY_URL}
+            proxy = _proxy_settings(REFRESH_PROXY_URL)
+            if proxy:
+                launch_kwargs["proxy"] = proxy
             browser = pw.chromium.launch(**launch_kwargs)
             try:
                 ctx = browser.new_context(
