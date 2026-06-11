@@ -117,3 +117,13 @@ def test_refresh_all_sources_failed(client, monkeypatch):
     data = client.post(f"/refresh/mouse/{pid}").json()
     assert data["refreshed"] is False
     assert data["updated"]["price"] == 1234.0
+
+
+def test_proxy_settings_parsing():
+    from app.services.refresh import _proxy_settings
+
+    assert _proxy_settings("") is None
+    p = _proxy_settings("http://user123:pa55@193.124.55.10:8000")
+    assert p == {"server": "http://193.124.55.10:8000", "username": "user123", "password": "pa55"}
+    # без авторизации
+    assert _proxy_settings("http://10.0.0.1:3128") == {"server": "http://10.0.0.1:3128"}
