@@ -136,7 +136,14 @@ def refresh_ozon(limit: int | None = None) -> dict:
         try:
             path = url.split("ozon.ru", 1)[-1] if "ozon.ru" in url else url
             data = OZ._browser_get(f"/api/entrypoint-api.bx/page/json/v2?url={path}")
-            ws = (data or {}).get("widgetStates", {})
+            if data is None:
+                # Сетевой сбой/антибот: ответа нет вообще — данные товара НЕ трогаем
+                failed += 1
+                print(f"  нет ответа (сеть/антибот): {url}")
+                time.sleep(random.uniform(0.4, 0.9))
+                continue
+
+            ws = data.get("widgetStates", {})
             status, price = "notfound", None
             for k, v in ws.items():
                 if "webPrice" in k:
@@ -155,7 +162,10 @@ def refresh_ozon(limit: int | None = None) -> dict:
             def _mut(r, price=price, status=status, rating=rating, reviews=reviews):
                 if status == "ok" and price and price >= 100:
                     r.price = price
-                elif status == "oos":
+                elif status in ("oos", "notfound"):
+                    # oos: «нет в наличии»; notfound: Ozon ответил, но страницы
+                    # товара больше нет (делистнут) — цена обнуляется, товар
+                    # выпадает из подбора и комплекта
                     r.price = None
                 if rating is not None:
                     r.ozon_rating = rating
