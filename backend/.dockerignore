@@ -1,0 +1,16 @@
+venv
+.env
+**/__pycache__
+**/*.pyc
+.pytest_cache
+*.db
+.dockerignore
+Dockerfile
+# одноразовые локальные скрипты (не входят в приложение)
+_check_prices.py
+_check_prices_out.txt
+_tmp.py
+_tmp_out.txt
+check_stock.py
+run_citilink_remaining.py
+backfill_citilink_fields.py

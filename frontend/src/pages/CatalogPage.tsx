@@ -289,7 +289,7 @@ export default function CatalogPage() {
       )}
 
       {selected && (
-        <ProductModal item={selected} onClose={() => setSelected(null)} />
+        <ProductModal item={selected} category={category} onClose={() => setSelected(null)} />
       )}
     </main>
   )
