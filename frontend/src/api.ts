@@ -109,3 +109,16 @@ export async function fetchCatalog(
   if (!res.ok) throw new Error('Failed to fetch catalog')
   return res.json()
 }
+
+export interface RefreshResponse {
+  refreshed: boolean
+  message?: string | null
+  sources?: Record<string, string>
+  updated: Record<string, any>
+}
+
+export async function refreshProduct(category: string, id: number): Promise<RefreshResponse> {
+  const res = await fetch(`${BASE}/refresh/${category}/${id}`, { method: 'POST' })
+  if (!res.ok) throw new Error('Failed to refresh product')
+  return res.json()
+}

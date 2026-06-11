@@ -93,10 +93,38 @@ function formatDate(dt: unknown): string | null {
 interface Props {
   item: Record<string, any>
   onClose: () => void
+  /** Категория товара (mouse/keyboard/...) — нужна для кнопки «Обновить цену» */
+  category?: string
 }
 
-export default function ProductModal({ item, onClose }: Props) {
+export default function ProductModal({ item: itemProp, onClose, category }: Props) {
   const [showBreakdown, setShowBreakdown] = useState(false)
+  // Поверх пропа накладываем обновлённые с маркетплейсов поля (кнопка «Обновить цену»)
+  const [patch, setPatch] = useState<Record<string, any>>({})
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshMsg, setRefreshMsg] = useState('')
+  const item = { ...itemProp, ...patch }
+
+  useEffect(() => {
+    setPatch({})
+    setRefreshMsg('')
+  }, [itemProp])
+
+  async function handleRefresh() {
+    if (!category || !itemProp.id || refreshing) return
+    setRefreshing(true)
+    setRefreshMsg('')
+    try {
+      const { refreshProduct } = await import('../api')
+      const r = await refreshProduct(category, itemProp.id)
+      setPatch((p) => ({ ...p, ...r.updated }))
+      setRefreshMsg(r.refreshed ? 'Обновлено только что' : r.message || 'Цена уже актуальна')
+    } catch {
+      setRefreshMsg('Не удалось обновить — показаны последние данные')
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -267,6 +295,31 @@ export default function ProductModal({ item, onClose }: Props) {
             <p className="text-xs text-amber-700 dark:text-amber-400 pl-5">
               Цены и наличие могут отличаться — проверяйте на сайте магазина
             </p>
+            {category && itemProp.id != null && (item.ozon_url || item.citilink_url) && (
+              <div className="flex items-center gap-2 pl-5 pt-0.5">
+                <button
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 disabled:opacity-60 transition-colors"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                  >
+                    <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                    <path d="M21 3v6h-6" />
+                  </svg>
+                  {refreshing ? 'Обновляем цену…' : 'Обновить цену'}
+                </button>
+                {refreshMsg && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">{refreshMsg}</span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

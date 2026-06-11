@@ -213,7 +213,7 @@ export default function ResultsPage() {
       )}
 
       {selected && (
-        <ProductModal item={selected as unknown as Record<string, unknown>} onClose={() => setSelected(null)} />
+        <ProductModal item={selected as unknown as Record<string, unknown>} category={category} onClose={() => setSelected(null)} />
       )}
     </main>
   )

@@ -35,7 +35,7 @@ export default function SetupPage() {
   const [result, setResult] = useState<SetupResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [selected, setSelected] = useState<any | null>(null)
+  const [selected, setSelected] = useState<{ item: any; cat: string } | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -162,7 +162,7 @@ export default function SetupPage() {
             {Object.entries(result.items).map(([cat, item]) => (
               <div
                 key={cat}
-                onClick={() => setSelected(item)}
+                onClick={() => setSelected({ item, cat })}
                 className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 flex items-center gap-4 cursor-pointer hover:border-blue-300 dark:hover:border-blue-500 hover:shadow-sm transition-all"
               >
                 {/* Изображение */}
@@ -220,7 +220,7 @@ export default function SetupPage() {
       )}
 
       {selected && (
-        <ProductModal item={selected} onClose={() => setSelected(null)} />
+        <ProductModal item={selected.item} category={selected.cat} onClose={() => setSelected(null)} />
       )}
     </main>
   )

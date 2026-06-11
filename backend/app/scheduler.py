@@ -33,10 +33,17 @@ def _run_all_parsers():
 
 
 scheduler = BackgroundScheduler(timezone="Europe/Moscow")
-scheduler.add_job(
-    _run_all_parsers,
-    trigger=IntervalTrigger(weeks=1),
-    id="weekly_full_parse",
-    name="Weekly full re-parse (Ozon)",
-    replace_existing=True,
-)
+
+# Еженедельный полный перепарс (поиск новых товаров) выключен по умолчанию:
+# стратегия сейчас — актуализировать уже известные товары (кнопка обновления),
+# а в проде для Selenium-пути всё равно нет браузера. Включение: ENABLE_WEEKLY_PARSE=1.
+import os
+
+if os.environ.get("ENABLE_WEEKLY_PARSE") == "1":
+    scheduler.add_job(
+        _run_all_parsers,
+        trigger=IntervalTrigger(weeks=1),
+        id="weekly_full_parse",
+        name="Weekly full re-parse (Ozon)",
+        replace_existing=True,
+    )
