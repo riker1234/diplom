@@ -1,6 +1,42 @@
-import random
 from sqlalchemy.orm import Session
 from app.recommendation.engine import recommend
+
+
+def _pick(items: list[dict], alloc: float, priority: str) -> dict | None:
+    """Выбирает один товар из категории по принципу «баланс цены и качества».
+
+    Использует балл качества (score) и цену:
+    - flagship: максимальный score (дорогое оправдано только баллом);
+    - budget:   самое выгодное (score/цена) в нижне-средней зоне 25–60% бюджета
+                среди достойных по качеству — осваивает бюджет, но без переплаты;
+    - balance:  максимальный score в здоровой ценовой зоне 40–85% выделенного
+                бюджета (без дешёвки и переплаты); если зона пуста — из всех.
+    """
+    if not items:
+        return None
+
+    def score(x: dict) -> float:
+        return x.get("score") or 0
+
+    def price(x: dict) -> float:
+        return x.get("best_price") or 0
+
+    if priority == "flagship":
+        return max(items, key=lambda x: (score(x), price(x)))
+
+    if priority == "budget":
+        lo, hi = 0.25 * alloc, 0.60 * alloc
+        zone = [x for x in items if lo <= price(x) <= hi]
+        pool = zone or items
+        best = max(score(x) for x in pool)
+        worthy = [x for x in pool if score(x) >= best - 15]
+        return max(worthy, key=lambda x: score(x) / (price(x) or 1))
+
+    # balance
+    lo, hi = 0.40 * alloc, 0.85 * alloc
+    zone = [x for x in items if lo <= price(x) <= hi]
+    pool = zone or items
+    return max(pool, key=lambda x: (score(x), -price(x)))
 
 # Веса распределения бюджета по категориям для каждого сценария использования
 _WEIGHTS: dict[str, dict[str, float]] = {
@@ -115,8 +151,9 @@ def recommend_setup(
         answers = {**base_answers, "budget": budget}
         items = recommend(cat, answers, db)
 
-        if items:
-            result[cat] = random.choice(items[:3])
+        pick = _pick(items, budget, priority)
+        if pick is not None:
+            result[cat] = pick
         else:
             failed.append(cat)
 
@@ -131,8 +168,9 @@ def recommend_setup(
                 allocations[cat] += extra_per_cat
                 answers = {**base_answers, "budget": allocations[cat]}
                 items = recommend(cat, answers, db)
-                if items:
-                    result[cat] = random.choice(items[:3])
+                pick = _pick(items, allocations[cat], priority)
+                if pick is not None:
+                    result[cat] = pick
 
     # Шаг 4: считаем итоговую стоимость
     total_price = 0.0
