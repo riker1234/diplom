@@ -3,6 +3,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db
+from app.recommendation.engine import attach_catalog_scores
 from app.models.mouse import Mouse
 from app.schemas.mouse import MouseResponse
 
@@ -36,7 +37,7 @@ def list_mice(
             or_(Mouse.wb_price == None, Mouse.wb_price >= price_min),
             or_(Mouse.citilink_price == None, Mouse.citilink_price >= price_min),
         )
-    return query.all()
+    return attach_catalog_scores(db, Mouse, "mouse", query.all())
 
 @router.get("/{mouse_id}", response_model=MouseResponse)
 def get_mouse(mouse_id: int, db: Session = Depends(get_db)):

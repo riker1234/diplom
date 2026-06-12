@@ -3,6 +3,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db
+from app.recommendation.engine import attach_catalog_scores
 from app.models.mousepad import Mousepad
 from app.schemas.mousepad import MousepadResponse
 
@@ -39,7 +40,7 @@ def list_mousepads(
             or_(Mousepad.wb_price == None, Mousepad.wb_price >= price_min),
             or_(Mousepad.citilink_price == None, Mousepad.citilink_price >= price_min),
         )
-    return query.all()
+    return attach_catalog_scores(db, Mousepad, "mousepad", query.all())
 
 @router.get("/{pad_id}", response_model=MousepadResponse)
 def get_mousepad(pad_id: int, db: Session = Depends(get_db)):

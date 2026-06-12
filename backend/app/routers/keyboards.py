@@ -3,6 +3,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db
+from app.recommendation.engine import attach_catalog_scores
 from app.models.keyboard import Keyboard
 from app.schemas.keyboard import KeyboardResponse
 
@@ -39,7 +40,7 @@ def list_keyboards(
             or_(Keyboard.wb_price == None, Keyboard.wb_price >= price_min),
             or_(Keyboard.citilink_price == None, Keyboard.citilink_price >= price_min),
         )
-    return query.all()
+    return attach_catalog_scores(db, Keyboard, "keyboard", query.all())
 
 @router.get("/{keyboard_id}", response_model=KeyboardResponse)
 def get_keyboard(keyboard_id: int, db: Session = Depends(get_db)):

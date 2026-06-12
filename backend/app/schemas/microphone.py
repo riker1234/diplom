@@ -23,6 +23,7 @@ class MicrophoneResponse(BaseModel):
     citilink_url: Optional[str] = None
     source: Optional[str] = None
     updated_at: Optional[datetime] = None
+    score: Optional[int] = None
     ozon_rating: Optional[float] = None
     ozon_reviews: Optional[int] = None
     citilink_rating: Optional[float] = None

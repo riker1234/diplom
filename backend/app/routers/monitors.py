@@ -3,6 +3,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db
+from app.recommendation.engine import attach_catalog_scores
 from app.models.monitor import Monitor
 from app.schemas.monitor import MonitorResponse
 
@@ -42,7 +43,7 @@ def list_monitors(
             or_(Monitor.wb_price == None, Monitor.wb_price >= price_min),
             or_(Monitor.citilink_price == None, Monitor.citilink_price >= price_min),
         )
-    return query.all()
+    return attach_catalog_scores(db, Monitor, "monitor", query.all())
 
 @router.get("/{monitor_id}", response_model=MonitorResponse)
 def get_monitor(monitor_id: int, db: Session = Depends(get_db)):

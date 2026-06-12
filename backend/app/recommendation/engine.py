@@ -62,6 +62,20 @@ def _compute_brand_avgs(db: Session, model) -> dict[str, tuple[float, int]]:
     return {b: (s / v, int(v)) for b, (s, v) in acc.items() if v > 0}
 
 
+def attach_catalog_scores(db: Session, model, category: str, products: list) -> list:
+    """Проставляет каждому товару каталога поле .score тем же движком, что и
+    подбор (score_product), но с нейтральными ответами (без анкеты): без бюджета
+    и сценария вклад дают в основном рейтинг и бренд-из-данных. Единый источник
+    оценки качества для каталога и рекомендаций.
+    """
+    brand_avgs = _compute_brand_avgs(db, model)
+    answers = {"priority": "balance"}
+    for p in products:
+        score, _ = scoring.score_product(p, category, answers, brand_avgs)
+        p.score = score
+    return products
+
+
 def recommend(category: str, answers: dict, db: Session) -> list[dict]:
     model = _MODEL_MAP[category]
     products = _build_query(category, answers, db, model).all()

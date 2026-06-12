@@ -3,6 +3,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db
+from app.recommendation.engine import attach_catalog_scores
 from app.models.microphone import Microphone
 from app.schemas.microphone import MicrophoneResponse
 
@@ -36,7 +37,7 @@ def list_microphones(
             or_(Microphone.wb_price == None, Microphone.wb_price >= price_min),
             or_(Microphone.citilink_price == None, Microphone.citilink_price >= price_min),
         )
-    return query.all()
+    return attach_catalog_scores(db, Microphone, "microphone", query.all())
 
 @router.get("/{mic_id}", response_model=MicrophoneResponse)
 def get_microphone(mic_id: int, db: Session = Depends(get_db)):
