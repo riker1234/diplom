@@ -246,8 +246,10 @@ export default function ProductModal({ item, onClose }: Props) {
                       </span>
                     )}
                   </span>
-                  {link.price != null && (
+                  {link.price != null ? (
                     <span className="font-bold text-blue-600 dark:text-blue-400">{formatPrice(link.price)}</span>
+                  ) : (
+                    <span className="text-xs text-gray-400 dark:text-gray-500">нет в наличии</span>
                   )}
                 </a>
               ))}

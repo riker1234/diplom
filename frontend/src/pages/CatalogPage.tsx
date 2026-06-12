@@ -109,6 +109,10 @@ export default function CatalogPage() {
   const filtered = items
     .filter((item) => matchesSources(item, sources))
     .sort((a, b) => {
+      // «Нет в наличии» (нет ни одной цены) — всегда в конец, при любой сортировке
+      const sa = bestPrice(a) != null ? 0 : 1
+      const sb = bestPrice(b) != null ? 0 : 1
+      if (sa !== sb) return sa - sb
       if (sort === 'price_asc') return (bestPrice(a) ?? Infinity) - (bestPrice(b) ?? Infinity)
       if (sort === 'price_desc') return (bestPrice(b) ?? -Infinity) - (bestPrice(a) ?? -Infinity)
       if (sort === 'name_asc') return (a.name ?? '').localeCompare(b.name ?? '', 'ru')
@@ -237,11 +241,13 @@ export default function CatalogPage() {
                   item.citilink_url && { label: 'Ситилинк', url: item.citilink_url, price: item.citilink_price },
                 ].filter(Boolean) as { label: string; url: string; price: number | null }[]
 
+                const outOfStock = bp == null
+
                 return (
                   <div
                     key={item.id}
                     onClick={() => setSelected(item)}
-                    className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden hover:shadow-md hover:border-blue-300 dark:hover:border-blue-500 transition-all flex flex-col cursor-pointer"
+                    className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden hover:shadow-md hover:border-blue-300 dark:hover:border-blue-500 transition-all flex flex-col cursor-pointer ${outOfStock ? 'opacity-60' : ''}`}
                   >
                     <ImageBox url={item.image_url} name={item.name} />
                     <div className="p-3 flex flex-col flex-1">
@@ -251,7 +257,13 @@ export default function CatalogPage() {
                       <h3 className="font-medium text-gray-900 dark:text-white text-sm leading-snug mb-2 line-clamp-2 flex-1">
                         {item.name}
                       </h3>
-                      {bp != null && (
+                      {outOfStock ? (
+                        <div className="mb-2">
+                          <span className="inline-block text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded px-2 py-0.5">
+                            Нет в наличии
+                          </span>
+                        </div>
+                      ) : (
                         <div className="text-blue-600 font-bold text-base mb-2">
                           от {formatPrice(bp)}
                         </div>
