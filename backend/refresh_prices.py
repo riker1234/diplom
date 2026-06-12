@@ -225,6 +225,86 @@ def refresh_citilink(limit: int | None = None) -> dict:
     return {"updated": updated, "oos": oos, "failed": failed}
 
 
+import urllib.request
+
+_WB_UA = {
+    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                   "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"),
+    "Accept": "*/*",
+    "Referer": "https://www.wildberries.ru/",
+}
+
+
+def _wb_detail(nm: int) -> dict | None:
+    """Карточка товара WB по артикулу через card.wb.ru v4. None = снят с продажи."""
+    url = (f"https://card.wb.ru/cards/v4/detail?appType=1&curr=rub"
+           f"&dest=-1257786&spp=30&nm={nm}")
+    req = urllib.request.Request(url, headers=_WB_UA)
+    with urllib.request.urlopen(req, timeout=20) as r:
+        data = json.load(r)
+    prods = (data.get("data") or {}).get("products") or data.get("products") or []
+    return prods[0] if prods else None
+
+
+def _wb_extract(p: dict) -> dict:
+    """Цена/наличие/рейтинг/отзывы из карточки WB v4."""
+    price = None
+    qty = 0
+    for s in (p.get("sizes") or []):
+        pr = s.get("price") or {}
+        v = pr.get("product") or pr.get("total") or pr.get("basic")
+        if v and price is None:
+            price = v / 100
+        for st in (s.get("stocks") or []):
+            qty += st.get("qty") or 0
+    if qty == 0:
+        qty = p.get("totalQuantity") or 0
+    rating = p.get("reviewRating") or p.get("nmReviewRating") or p.get("rating") or None
+    reviews = p.get("feedbacks") or p.get("nmFeedbacks") or None
+    return {"price": price, "qty": qty, "rating": rating, "reviews": reviews}
+
+
+def refresh_wb(limit: int | None = None) -> dict:
+    rows = _collect("wb_sku")
+    if limit:
+        rows = rows[:limit]
+    print(f"[wb] товаров с wb_sku: {len(rows)}")
+    updated = oos = delisted = failed = 0
+    for i, (model, pid, sku) in enumerate(rows, 1):
+        try:
+            nm = int(sku)
+            p = _wb_detail(nm)
+            if p is None:
+                # снят с продажи — цена обнуляется, товар выпадает из подбора/комплекта
+                _apply(model, pid, lambda r: setattr(r, "wb_price", None))
+                delisted += 1
+            else:
+                d = _wb_extract(p)
+
+                def _mut(r, d=d):
+                    if d["qty"] and d["price"] and d["price"] >= 50:
+                        r.wb_price = d["price"]
+                    else:
+                        r.wb_price = None  # нет в наличии
+                    if d["rating"] is not None:
+                        r.wb_rating = d["rating"]
+                    if d["reviews"] is not None:
+                        r.wb_reviews = d["reviews"]
+
+                _apply(model, pid, _mut)
+                if d["qty"] and d["price"]:
+                    updated += 1
+                else:
+                    oos += 1
+        except Exception as e:
+            failed += 1
+            print(f"  fetch fail wb_sku={sku}: {e!r}")
+        if i % 50 == 0:
+            print(f"[wb] {i}/{len(rows)}  upd={updated} oos={oos} delisted={delisted} fail={failed}")
+        time.sleep(random.uniform(0.3, 0.7))
+    return {"updated": updated, "oos": oos, "delisted": delisted, "failed": failed}
+
+
 def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8")
     source = sys.argv[1] if len(sys.argv) > 1 else "all"
@@ -238,6 +318,9 @@ def main() -> None:
     if source in ("citilink", "all"):
         print("=== refresh CITILINK ===")
         print(refresh_citilink(limit))
+    if source in ("wb", "all"):
+        print("=== refresh WB ===")
+        print(refresh_wb(limit))
     print("Готово.")
 
 
