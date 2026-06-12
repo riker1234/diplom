@@ -18,10 +18,13 @@ const SOURCES = [
 ]
 
 const SORT_OPTIONS = [
-  { id: 'default', label: 'По умолчанию' },
+  { id: 'recommended', label: 'Рекомендуемые' },
+  { id: 'rating', label: 'По рейтингу' },
+  { id: 'popular', label: 'По отзывам' },
   { id: 'price_asc', label: 'Сначала дешевле' },
   { id: 'price_desc', label: 'Сначала дороже' },
   { id: 'name_asc', label: 'По названию А-Я' },
+  { id: 'name_desc', label: 'По названию Я-А' },
 ]
 
 function matchesSources(item: any, sources: Set<string>): boolean {
@@ -87,7 +90,7 @@ function ImageBox({ url, name }: { url: string | null; name: string }) {
 export default function CatalogPage() {
   const [category, setCategory] = useState('mouse')
   const [sources, setSources] = useState<Set<string>>(new Set())
-  const [sort, setSort] = useState('default')
+  const [sort, setSort] = useState('recommended')
   const [priceMin, setPriceMin] = useState('')
   const [priceMax, setPriceMax] = useState('')
   const [items, setItems] = useState<any[]>([])
@@ -116,7 +119,16 @@ export default function CatalogPage() {
       if (sort === 'price_asc') return (bestPrice(a) ?? Infinity) - (bestPrice(b) ?? Infinity)
       if (sort === 'price_desc') return (bestPrice(b) ?? -Infinity) - (bestPrice(a) ?? -Infinity)
       if (sort === 'name_asc') return (a.name ?? '').localeCompare(b.name ?? '', 'ru')
-      return 0
+      if (sort === 'name_desc') return (b.name ?? '').localeCompare(a.name ?? '', 'ru')
+      if (sort === 'rating') {
+        const ra = bestRating(a), rb = bestRating(b)
+        return (rb?.rating ?? -1) - (ra?.rating ?? -1) || (rb?.reviews ?? 0) - (ra?.reviews ?? 0)
+      }
+      if (sort === 'popular') {
+        return (bestRating(b)?.reviews ?? -1) - (bestRating(a)?.reviews ?? -1)
+      }
+      // 'recommended' (по умолчанию) — балл скоринга качества с бэкенда
+      return (b.score ?? -1) - (a.score ?? -1)
     })
 
   return (

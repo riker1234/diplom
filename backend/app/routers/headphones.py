@@ -3,6 +3,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db
+from app.recommendation.engine import attach_catalog_scores
 from app.models.headphones import Headphones
 from app.schemas.headphones import HeadphonesResponse
 
@@ -39,7 +40,7 @@ def list_headphones(
             or_(Headphones.wb_price == None, Headphones.wb_price >= price_min),
             or_(Headphones.citilink_price == None, Headphones.citilink_price >= price_min),
         )
-    return query.all()
+    return attach_catalog_scores(db, Headphones, "headphones", query.all())
 
 @router.get("/{headphones_id}", response_model=HeadphonesResponse)
 def get_headphones(headphones_id: int, db: Session = Depends(get_db)):
